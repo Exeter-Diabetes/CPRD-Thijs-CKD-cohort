@@ -67,11 +67,12 @@ comorbids <- c("acutepancreatitis",
                "incident_stroke",
                "fluvacc_stopflu_med",
                "dka",
-#               "hosp_cause_majoramputation",
-#               "hosp_cause_minoramputation",
+#               "hosp_cause_majoramputation", # disabled at present as table name too long for MySQL
+#               "hosp_cause_minoramputation", # disabled at present as table name too long for MySQL
                "osteoporosis",
                "unstableangina",
-               "ld"
+               "learning_disability",
+               "sev_mental_illness"
 )
 
 
