@@ -19,7 +19,7 @@ library(aurum)
 library(EHRBiomarkr)
 rm(list=ls())
 
-cprd = CPRDData$new(cprdEnv = "test-remote-full", cprdConf = "C:/Users/thijs/Documents/ACL/R/aurum.yaml")
+cprd = CPRDData$new(cprdEnv = "test-remote-full", cprdConf = "C:/Users/tj358/OneDrive - University of Exeter/CPRD/aurum.yaml")
 
 codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
@@ -37,7 +37,7 @@ analysis = cprd$analysis(analysis_prefix)
 ## If you add biomarker to the end of this list, code should run fine to incorporate new biomarker, as long as you delete final 'baseline_biomarkers' table
 
 biomarkers <- c("weight", "height", "bmi", "hdl", "triglyceride", #"creatinine_blood", 
-                "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "pcr", "acr_from_separate")
+                "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "pcr")
 
 
 ############################################################################################
@@ -97,7 +97,8 @@ for (i in biomarkers) {
     ungroup() %>%
     
     inner_join(cprd$tables$validDateLookup, by="patid") %>%
-    filter(obsdate>=min_dob & obsdate<=gp_ons_end_date) %>%
+    #filter(obsdate>=min_dob & obsdate<=gp_ons_end_date) %>%  #gp_ons_end_date not available on this dataset
+    filter(obsdate>=min_dob & obsdate<=gp_end_date) %>%
     
     select(patid, date=obsdate, testvalue) %>%
     
@@ -122,7 +123,8 @@ clean_hba1c_medcodes <- raw_hba1c_medcodes %>%
   ungroup() %>%
   
   inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  filter(obsdate>=min_dob & obsdate<=gp_ons_end_date & year(obsdate)>=1990) %>%
+ # filter(obsdate>=min_dob & obsdate<=gp_ons_end_date & year(obsdate)>=1990) %>%
+  filter(obsdate>=min_dob & obsdate<=gp_end_date & year(obsdate)>=1990) %>%
   
   select(patid, date=obsdate, testvalue) %>%
   

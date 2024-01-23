@@ -319,6 +319,10 @@ analysis = cprd$analysis("all")
 ethnicity <- ethnicity %>% analysis$cached("gp_ethnicity")
 language <- language %>% analysis$cached("gp_language")
 
+analysis = cprd$analysis(analysis_prefix)
+comorbidities <- comorbidities %>% analysis$cached("comorbidities_2020_jul", unique_indexes="patid")
+#medications <- medications %>% analysis$cached("medications_2020_jul", unique_indexes = "patid")
+
 #### join up and cache
 analysis = cprd$analysis(analysis_prefix)
 ckd_stages_2020 <- ckd_stages_2020 %>%
@@ -343,18 +347,23 @@ ckd_stages_2020 <- ckd_stages_2020 %>%
 #         with_hes=ifelse(!is.na(n_patid_hes) & n_patid_hes<=20, 1L, 0L)
 ) %>%
   
-  left_join(ethnicity, by="patid") %>%
-  left_join(language, by = "patid") %>%
+  left_join(ethnicity, by = "patid") %>%
+  left_join(language,  by = "patid") %>%
   
   select(patid, gender, dob, pracid, prac_region=region, 
          preckdstage, preckdstagedate, 
          preegfr, creatinine, preegfrdate, 
          gp_5cat_ethnicity, gp_16cat_ethnicity, gp_qrisk2_ethnicity, 
-         language_cat,
+         language_cat=gp_language_cat,
 #         imd2015_10, 
          regstartdate, gp_record_end, 
 #         death_date, with_hes
          ) %>% 
   
   analysis$cached("ckd_cohort_temp3", unique_indexes="patid", indexes=c("gender", "dob", "preckdstage"))
+
+ckd_cohort <- ckd_stages_2020 %>%
+  inner_join(comorbidities, by="patid") %>%
+  #inner_join(medications, by="patid") %>%
+  analysis$cached("ckd_cohort_temp4", unique_indexes="patid", indexes=c("gender", "dob", "preckdstage"))
 
