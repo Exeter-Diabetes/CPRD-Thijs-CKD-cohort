@@ -85,7 +85,7 @@ clean_oha_prodcodes <- raw_oha_prodcodes %>%
   #  filter(issuedate>=min_dob & issuedate<=gp_ons_end_date) %>%
     filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
   rename(date=issuedate) %>%
-  analysis$cached("clean_oha_prodcodes", indexes=c("patid", "issuedate"))
+  analysis$cached("clean_oha_prodcodes", indexes=c("patid", "date"))
 
 clean_acarbose_prodcodes <- clean_oha_prodcodes %>%
   filter(Acarbose==1) %>%
@@ -127,7 +127,7 @@ clean_insulin_prodcodes <- raw_insulin_prodcodes %>%
   # filter(issuedate>=min_dob & issuedate<=gp_ons_end_date) %>%
    filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
   rename(date=issuedate) %>%
-  analysis$cached("clean_insulin_prodcodes", indexes=c("patid", "issuedate"))
+  analysis$cached("clean_insulin_prodcodes", indexes=c("patid", "date"))
 
 clean_insulin_prodcodes <- clean_insulin_prodcodes %>%
   select(patid, date) %>%

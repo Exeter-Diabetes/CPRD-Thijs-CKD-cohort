@@ -12,7 +12,7 @@ codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
 current_list <- codesets$listCodeSets()
 
 
-minimum_date <- as.Date("2018-01-01")
+minimum_date <- as.Date("2010-01-01")
 index_date <- as.Date("2020-07-01")
 end_date <- as.Date("2020-10-31")
 
@@ -41,7 +41,7 @@ clean_creatinine_blood_medcodes <- raw_creatinine_blood_medcodes %>%
   analysis$cached("clean_creatinine_blood_medcodes", indexes=c("patid", "date", "testvalue"))
 
 clean_creatinine_blood_medcodes %>% count()
-#6,696,480
+#74,511,626
 
 ## Convert to eGFR
 
