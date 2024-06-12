@@ -217,7 +217,7 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   analysis$cached("ckd_stages_from_algorithm_interim_3",indexes=c("patid","ckd_stage","first_test_date"))
 
 ckd_stages_from_algorithm %>% count()        
-#1,188,059
+#12,130,677
 
 
 ################################################################################################################################
@@ -257,7 +257,9 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   analysis$cached("ckd_stages_from_algorithm", unique_indexes="patid")
 
 ckd_stages_from_algorithm %>% count()        
-#1,095,842
+#8,466,065
+
+################################################################################################################################
 
 # create index date for date of first CKD stage 4 or 5
 
@@ -265,7 +267,7 @@ analysis = cprd$analysis(analysis_prefix)
 
 advanced_ckd <- ckd_stages_from_algorithm %>%
   filter(!is.na(stage_4) | !is.na(stage_5)) %>%  # select rows with ckd stage 4/5 only
-  mutate(index_date=pmin(stage_4, stage_5, na.rm=T)) %>% # set index date as first date of ckd stage 4 or 5
+  mutate(index_date=ifelse(is.na(stage_4) | is.na(stage_5), coalesce(stage_4, stage_5), ifelse(stage_4 < stage_5, stage_4, stage_5))) %>% # set index date as first date of ckd stage 4 or 5
   select(patid, index_date) %>%
   analysis$cached("advanced_ckd_index_date", unique_indexes="patid")
   

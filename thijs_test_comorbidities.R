@@ -22,7 +22,7 @@ analysis = cprd$analysis(analysis_prefix)
 
 
 # Define comorbidities
-## If you add comorbidity to the end of this list, code should run fine to incorporate new comorbidity, as long as you delete final 'mm_comorbidities' table
+## If you add comorbidity to the end of this list, code should run fine to incorporate new comorbidity, as long as you delete final 'comorbidities_advanced_ckd' table
 
 comorbids <- c("acutepancreatitis",
                "af", #atrial fibrillation

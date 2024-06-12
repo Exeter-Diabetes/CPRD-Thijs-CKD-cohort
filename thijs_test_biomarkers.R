@@ -34,7 +34,7 @@ analysis = cprd$analysis(analysis_prefix)
 
 # Define biomarkers
 ## Keep HbA1c separate as processed differently
-## If you add biomarker to the end of this list, code should run fine to incorporate new biomarker, as long as you delete final 'baseline_biomarkers' table
+## If you add biomarker to the end of this list, code should run fine to incorporate new biomarker, as long as you delete final 'biomarkers_advanced_ckd' table
 
 biomarkers <- c("weight", "height", "bmi", "totalcholesterol", "creatinine_blood", 
                 "albumin_blood", "haemoglobin", "dbp", "sbp", "acr", "pcr", "albumin_urine", "creatinine_urine")
