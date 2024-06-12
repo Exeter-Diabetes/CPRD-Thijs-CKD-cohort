@@ -49,7 +49,6 @@ library(tidyverse)
 cprd = CPRDData$new(cprdEnv = "test-remote-full", cprdConf = "C:/Users/tj358/OneDrive - University of Exeter/CPRD/aurum.yaml")
 codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
-codes2 = codesets$getAllCodeSetVersion(v = "5/6/2023") # For some reason Joshua has saved a number of codes under a different index date
 
 analysis = cprd$analysis("all")
 
@@ -62,13 +61,13 @@ analysis = cprd$analysis("all")
 ## All 3 codelists (ethnicity_5cat, ethnicity_16cat and ethnicity_qrisk2) are identical, just with different category columns
 
 raw_gp_ethnicity <- cprd$tables$observation %>% 
-  inner_join(codes2$ethnicity_5cat, by="medcodeid") %>%
+  inner_join(codes$ethnicity_5cat, by="medcodeid") %>%
   select(patid, obsdate, medcodeid) %>%
   analysis$cached("raw_gp_ethnicity", indexes=c("patid", "obsdate", "medcodeid"))
 
 
 gp_5cat_ethnicity <- raw_gp_ethnicity %>% 
-  inner_join(codes2$ethnicity_5cat, by="medcodeid") %>%
+  inner_join(codes$ethnicity_5cat, by="medcodeid") %>%
   
   filter(ethnicity_5cat_cat!=5) %>%                                                 # remove 'missing' codes
   
@@ -88,7 +87,7 @@ gp_5cat_ethnicity <- raw_gp_ethnicity %>%
 
 
 gp_16cat_ethnicity <- raw_gp_ethnicity %>% 
-  inner_join(codes2$ethnicity_16cat, by="medcodeid") %>%
+  inner_join(codes$ethnicity_16cat, by="medcodeid") %>%
   
   filter(ethnicity_16cat_cat!=17) %>%                                                # remove 'missing' codes
   
@@ -108,7 +107,7 @@ gp_16cat_ethnicity <- raw_gp_ethnicity %>%
 
 
 gp_qrisk2_ethnicity <- raw_gp_ethnicity %>% 
-  inner_join(codes2$qrisk2_ethnicity, by="medcodeid") %>%
+  inner_join(codes$qrisk2_ethnicity, by="medcodeid") %>%
   
   filter(qrisk2_ethnicity_cat!=0) %>%                                               # remove 'missing' codes
   

@@ -36,8 +36,8 @@ analysis = cprd$analysis(analysis_prefix)
 ## Keep HbA1c separate as processed differently
 ## If you add biomarker to the end of this list, code should run fine to incorporate new biomarker, as long as you delete final 'baseline_biomarkers' table
 
-biomarkers <- c("weight", "height", "bmi", "hdl", "triglyceride", #"creatinine_blood", 
-                "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "pcr")
+biomarkers <- c("weight", "height", "bmi", "totalcholesterol", "creatinine_blood", 
+                "albumin_blood", "haemoglobin", "dbp", "sbp", "acr", "pcr", "albumin_urine", "creatinine_urine")
 
 
 ############################################################################################
@@ -88,10 +88,31 @@ for (i in biomarkers) {
   raw_tablename <- paste0("raw_", i, "_medcodes")
   clean_tablename <- paste0("clean_", i, "_medcodes")
   
-  data <- get(raw_tablename) %>%
-    clean_biomarker_values(testvalue, i) %>%
-    clean_biomarker_units(numunitid, i) %>%
-    
+  if (i=="haemoglobin") {
+    message("Converting haemoglobin values to g/L")
+    raw_data <- get(raw_tablename) %>%
+      mutate(testvalue=ifelse(testvalue<30, testvalue*10, testvalue))
+  }
+  else {
+    raw_data <- get(raw_tablename)
+  }
+  
+  
+  if (i=="albumin_urine") {
+    data <- raw_data %>%
+      filter(numunitid==183)
+  }
+  else if (i=="creatinine_urine") {
+    data <- raw_data %>%
+      filter(numunitid==218 | numunitid==285) %>%
+      mutate(testvalue=ifelse(numunitid==285, testvalue/1000, testvalue))
+  }
+  else {
+    data <- raw_data %>%
+      clean_biomarker_values(testvalue, i) %>%
+      clean_biomarker_units(numunitid, i)
+  }
+    data <- data %>%
     group_by(patid,obsdate) %>%
     summarise(testvalue=mean(testvalue, na.rm=TRUE)) %>%
     ungroup() %>%
@@ -130,7 +151,41 @@ clean_hba1c_medcodes <- raw_hba1c_medcodes %>%
   
   analysis$cached("clean_hba1c_medcodes", indexes=c("patid", "date", "testvalue"))
 
+# egfr
+analysis = cprd$analysis(analysis_prefix)
+dob <- dob %>% analysis$cached("dob")
 
+analysis = cprd$analysis("all_patid")
+clean_egfr_medcodes <- clean_creatinine_blood_medcodes %>%
+  
+  inner_join((dob %>% select(patid, dob)), by="patid") %>%
+  inner_join((cprd$tables$patient %>% select(patid, gender)), by="patid") %>%
+  mutate(age_at_creat=(datediff(date, dob))/365.25,
+         sex=ifelse(gender==1, "male", ifelse(gender==2, "female", NA))) %>%
+  select(-c(dob, gender)) %>%
+  
+  ckd_epi_2021_egfr(creatinine=testvalue, sex=sex, age_at_creatinine=age_at_creat) %>%
+  select(-c(testvalue, sex, age_at_creat)) %>%
+  
+  rename(testvalue=ckd_epi_2021_egfr) %>%
+  filter(!is.na(testvalue)) %>%
+  analysis$cached("clean_egfr_medcodes", indexes=c("patid", "date", "testvalue"))
+
+biomarkers <- c("egfr", biomarkers)
+
+# Make ACR from separate urine albumin and urine creatinine measurements on the same day
+# Then clean values
+
+clean_acr_from_separate_medcodes <- clean_albumin_urine_medcodes %>%
+  inner_join((clean_creatinine_urine_medcodes %>% select(patid, creat_date=date, creat_value=testvalue)), by="patid") %>%
+  filter(date==creat_date) %>%
+  mutate(new_testvalue=testvalue/creat_value) %>%
+  select(patid, date, testvalue=new_testvalue) %>%
+  clean_biomarker_values(testvalue, "acr") %>%
+  analysis$cached("clean_acr_from_separate_medcodes", indexes=c("patid", "date", "testvalue"))
+
+biomarkers <- setdiff(biomarkers, c("albumin_urine", "creatinine_urine"))
+biomarkers <- c("acr_from_separate", biomarkers)
 
 ############################################################################################
 
@@ -140,8 +195,10 @@ clean_hba1c_medcodes <- raw_hba1c_medcodes %>%
 
 analysis = cprd$analysis(analysis_prefix)
 
-index_date <- as.Date("2020-07-01")
+advanced_ckd <- advanced_ckd %>%
+  analysis$cached("advanced_ckd_index_date")
 
+advanced_ckd <- advanced_ckd %>% select(patid, index_date)
 
 ## Merge with biomarkers and calculate date difference between biomarker and index date
 
@@ -150,9 +207,10 @@ for (i in biomarkers) {
   print(i)
   
   clean_tablename <- paste0("clean_", i, "_medcodes")
-  index_date_merge_tablename <- paste0("full_", i, "_index_date_2020_merge")
+  index_date_merge_tablename <- paste0("full_", i, "_index_date_merge")
   
   data <- get(clean_tablename) %>%
+    inner_join(advanced_ckd, by="patid") %>%
     mutate(datediff=datediff(date, index_date))
   
   assign(index_date_merge_tablename, data)
@@ -162,7 +220,8 @@ for (i in biomarkers) {
 
 # HbA1c
 
-full_hba1c_index_date_2020_merge <- clean_hba1c_medcodes %>%
+full_hba1c_index_date_merge <- clean_hba1c_medcodes %>%
+  inner_join(advanced_ckd, by="patid") %>%
   mutate(datediff=datediff(date, index_date))
 
 
@@ -174,105 +233,78 @@ full_hba1c_index_date_2020_merge <- clean_hba1c_medcodes %>%
 ## May be multiple values; use minimum test result, except for eGFR - use maximum
 ## Can get duplicates where person has identical results on the same day/days equidistant from the index date - choose first row when ordered by datediff
 
-biomarkers_2020 <- cprd$tables$patient %>%
-  select(patid)
-
+baseline_biomarkers <- advanced_ckd
 
 ## For all except HbA1c and height: between 2 years prior and 7 days after index date
 
 biomarkers_no_height <- setdiff(biomarkers, "height")
 
+
+biomarkers_no_height <- c(biomarkers_no_height, "hba1c")
+
 for (i in biomarkers_no_height) {
   
   print(i)
   
-  index_date_merge_tablename <- paste0("full_", i, "_index_date_2020_merge")
-  interim_2020_biomarker_table <- paste0("biomarkers_2020_interim_", i)
+  drug_merge_tablename <- paste0("full_", i, "_drug_merge")
+  interim_baseline_biomarker_table <- paste0("baseline_biomarkers_interim_", i)
   pre_biomarker_variable <- paste0("pre", i)
   pre_biomarker_date_variable <- paste0("pre", i, "date")
-  pre_biomarker_datediff_variable <- paste0("pre", i, "datediff")
+  pre_biomarker_drugdiff_variable <- paste0("pre", i, "drugdiff")
   
   
-  data <- get(index_date_merge_tablename) %>%
-    filter(datediff<=7 & datediff>=-730) %>%
+  data <- get(drug_merge_tablename) %>%
+    filter(drugdatediff<=7 & drugdatediff>=-730) %>%
     
-    group_by(patid) %>%
+    group_by(patid, dstartdate, drugclass) %>%
     
-    mutate(min_timediff=min(abs(datediff), na.rm=TRUE)) %>%
-    filter(abs(datediff)==min_timediff) %>%
+    mutate(min_timediff=min(abs(drugdatediff), na.rm=TRUE)) %>%
+    filter(abs(drugdatediff)==min_timediff) %>%
     
     mutate(pre_biomarker=ifelse(i=="egfr", max(testvalue, na.rm=TRUE), min(testvalue, na.rm=TRUE))) %>%
     filter(pre_biomarker==testvalue) %>%
     
-    dbplyr::window_order(datediff) %>%
+    dbplyr::window_order(drugdatediff) %>%
     filter(row_number()==1) %>%
     
     ungroup() %>%
     
     relocate(pre_biomarker, .after=patid) %>%
     relocate(date, .after=pre_biomarker) %>%
-    relocate(datediff, .after=date) %>%
+    relocate(drugdatediff, .after=date) %>%
     
     rename({{pre_biomarker_variable}}:=pre_biomarker,
            {{pre_biomarker_date_variable}}:=date,
-           {{pre_biomarker_datediff_variable}}:=datediff) %>%
+           {{pre_biomarker_drugdiff_variable}}:=drugdatediff) %>%
     
-    select(-c(testvalue, min_timediff))
+    select(-c(testvalue, druginstance, min_timediff, timetochange, timetoaddrem, multi_drug_start, nextdrugchange, nextdcdate))
   
   
-  biomarkers_2020 <- biomarkers_2020 %>%
-    left_join(data, by="patid") %>%
-    analysis$cached(interim_2020_biomarker_table, unique_indexes="patid")
+  baseline_biomarkers <- baseline_biomarkers %>%
+    left_join(data, by=c("patid", "index_date")) %>%
+    analysis$cached(interim_baseline_biomarker_table, indexes=c("patid", "index_date"))
   
 }
 
 
-## Height - only keep readings at/post-index date, and find mean
+## Height - only keep readings at/post drug start date, and find mean
 
-height_2020 <- full_height_index_date_2020_merge %>%
-  filter(datediff>=0) %>%
-  group_by(patid) %>%
+baseline_height <- full_height_drug_merge %>%
+  
+  filter(drugdatediff>=0) %>%
+  
+  group_by(patid, dstartdate, drugclass) %>%
+  
   summarise(height=mean(testvalue, na.rm=TRUE)) %>%
+  
   ungroup()
 
-biomarkers_2020 <- biomarkers_2020 %>%
-  left_join(height_2020, by="patid")
-
-
-## HbA1c: only between 6 months prior and 7 days after index date
-### NB: in treatment response cohort, baseline HbA1c set to missing if occurs before previous treatment change
-
-hba1c_2020 <- full_hba1c_index_date_2020_merge %>%
-  
-  filter(datediff<=7 & datediff>=-183) %>%
-  
-  group_by(patid) %>%
-  
-  mutate(min_timediff=min(abs(datediff), na.rm=TRUE)) %>%
-  filter(abs(datediff)==min_timediff) %>%
-  
-  mutate(prehba1c=min(testvalue, na.rm=TRUE)) %>%
-  filter(prehba1c==testvalue) %>%
-  
-  dbplyr::window_order(datediff) %>%
-  filter(row_number()==1) %>%
-  
-  ungroup() %>%
-  
-  relocate(prehba1c, .after=patid) %>%
-  relocate(date, .after=prehba1c) %>%
-  relocate(datediff, .after=date) %>%
-  
-  rename(prehba1cdate=date,
-         prehba1cdatediff=datediff) %>%
-  
-  select(-c(testvalue, min_timediff))
-
+baseline_biomarkers <- baseline_biomarkers %>%
+  left_join(baseline_height, by=c("patid", "index_date"))
 
 ## Join HbA1c to main table
 
 analysis = cprd$analysis(analysis_prefix)
 
-biomarkers_2020 <- biomarkers_2020 %>%
-  left_join(hba1c_2020, by="patid") %>% 
-  analysis$cached("biomarkers_2020_jul", unique_indexes="patid")
+baseline_biomarkers <- baseline_biomarkers %>%
+  analysis$cached("biomarkers_advanced_ckd", unique_indexes=c("patid", "index_date"))

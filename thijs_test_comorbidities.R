@@ -13,7 +13,6 @@ current_list <- codesets$listCodeSets()
 
 
 minimum_date <- as.Date("2018-01-01")
-index_date <- as.Date("2020-07-01")
 end_date <- as.Date("2020-10-31")
 
 analysis_prefix <- "thijs_test"
@@ -151,7 +150,7 @@ comorbids <- c("primary_hhf", "primary_incident_mi", "primary_incident_stroke", 
 
 ############################################################################################
 
-analysis = cprd$analysis(analysis_prefix) #dit was "mm" maar daaronder kan ik het niet opslaan omdat er daar al een table bestaat
+analysis = cprd$analysis(analysis_prefix) 
 
 
 # Add in CV and HF and KF death outcomes
@@ -281,6 +280,12 @@ death_causes <- cprd$tables$onsDeath %>%
 
 analysis = cprd$analysis(analysis_prefix)
 
+# get index date
+
+advanced_ckd <- advanced_ckd %>%
+  analysis$cached("advanced_ckd_index_date")
+
+comorbidities <- advanced_ckd %>% select(patid, index_date)
 
 ## Clean comorbidity data and combine with index date
 
@@ -364,6 +369,7 @@ for (i in comorbids) {
   rm(all_codes)
   
   data <- all_codes_clean %>%
+    inner_join(comorbidities, by="patid") %>%
     mutate(datediff=datediff(date, index_date)) %>%
     analysis$cached(index_date_merge_tablename, index="patid")
   
@@ -380,35 +386,33 @@ for (i in comorbids) {
 
 # Find earliest pre-index date, latest pre-index date and first post-index date dates
 
-comorbidities <- cprd$tables$patient %>%
-  select(patid)
 
 for (i in comorbids) {
-  
+
   print(paste("working out pre- and post-index date code occurrences for", i))
-  
+
   index_date_merge_tablename <- paste0("full_", i, "_index_date_merge")
   interim_comorbidity_table <- paste0("comorbidities_interim_", i)
   pre_index_date_earliest_date_variable <- paste0("pre_index_date_earliest_", i)
   pre_index_date_latest_date_variable <- paste0("pre_index_date_latest_", i)
   pre_index_date_variable <- paste0("pre_index_date_", i)
   post_index_date_date_variable <- paste0("post_index_date_first_", i)
-  
+
   pre_index_date <- get(index_date_merge_tablename) %>%
     filter(date<=index_date) %>%
     group_by(patid) %>%
     summarise({{pre_index_date_earliest_date_variable}}:=min(date, na.rm=TRUE),
               {{pre_index_date_latest_date_variable}}:=max(date, na.rm=TRUE)) %>%
     ungroup()
-  
+
   post_index_date <- get(index_date_merge_tablename) %>%
     filter(date>index_date) %>%
-    group_by(patid,) %>%
+    group_by(patid) %>%
     summarise({{post_index_date_date_variable}}:=min(date, na.rm=TRUE)) %>%
     ungroup()
-  
+
   pre_index_date_earliest_date_variable <- as.symbol(pre_index_date_earliest_date_variable)
-  
+
   comorbidities <- comorbidities %>%
     left_join(pre_index_date, by="patid") %>%
     mutate({{pre_index_date_variable}}:=!is.na(pre_index_date_earliest_date_variable)) %>%
@@ -416,4 +420,4 @@ for (i in comorbids) {
     analysis$cached(interim_comorbidity_table, unique_indexes="patid")
 }
 
-comorbidities <- comorbidities %>% analysis$cached("comorbidities_2020_jul", unique_indexes="patid")
+comorbidities <- comorbidities %>% analysis$cached("comorbidities_advanced_ckd", unique_indexes="patid")

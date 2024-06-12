@@ -19,7 +19,6 @@ current_list <- codesets$listCodeSets()
 
 
 minimum_date <- as.Date("2018-01-01")
-index_date <- as.Date("2020-07-01")
 end_date <- as.Date("2020-10-31")
 
 analysis_prefix <- "thijs_test"
@@ -36,7 +35,11 @@ meds <- c("ace_inhibitors",
           "calcium_channel_blockers",
           "thiazide_diuretics",
           "loop_diuretics",
-          "ksparing_diuretics")
+          "ksparing_diuretics",
+          "2hpt",
+          "esa",
+          "pbinders",
+          "iv_iron")
 
 # OHA and insulin processed separately as want to keep extra variables
 
@@ -145,7 +148,10 @@ meds <- c(meds, "acarbose", "dpp4", "glinide", "glp1", "mfn", "sglt2", "su", "tz
 
 analysis = cprd$analysis(analysis_prefix)
 
-index_date <- as.Date("2020-07-01")
+advanced_ckd <- advanced_ckd %>%
+  analysis$cached("advanced_ckd_index_date")
+
+medications <- advanced_ckd %>% select(patid, index_date)
 
 
 # Clean scripts and combine with index date
@@ -160,6 +166,7 @@ for (i in meds) {
     index_date_merge_tablename <- paste0("full_", i, "_index_date_merge")
     
     data <- get(clean_tablename) %>%
+      inner_join(medications, by="patid") %>%
       mutate(datediff=datediff(date, index_date)) %>%
       analysis$cached(index_date_merge_tablename, indexes="patid")
     
@@ -176,7 +183,7 @@ for (i in meds) {
      # filter(date>=min_dob & date<=gp_ons_end_date) %>%
       filter(date>=min_dob & date<=gp_end_date) %>%
       select(patid, date) %>%
-      
+      inner_join(medications, by="patid") %>%
       mutate(datediff=datediff(date, index_date)) %>%
       
       analysis$cached(index_date_merge_tablename, indexes="patid")
@@ -186,47 +193,42 @@ for (i in meds) {
   }
 }
 
-
 ############################################################################################
 
 # Find earliest pre-index date, latest pre-index date and first post-index date dates
 
 
-medications <- cprd$tables$patient %>%
-  select(patid)
-
-
 for (i in meds) {
-  
+
   print(paste("working out pre- and post- index date code occurrences for", i))
-  
+
   index_date_merge_tablename <- paste0("full_", i, "_index_date_merge")
   interim_medications_table <- paste0("medications_im_", i)
   pre_index_date_earliest_date_variable <- paste0("pre_index_date_earliest_", i, "")
   pre_index_date_latest_date_variable <- paste0("pre_index_date_latest_", i, "")
   post_index_date_date_variable <- paste0("post_index_date_first_", i, "")
-  
+
   pre_index_date <- get(index_date_merge_tablename) %>%
     filter(date<=index_date) %>%
     group_by(patid) %>%
     summarise({{pre_index_date_earliest_date_variable}}:=min(date, na.rm=TRUE),
               {{pre_index_date_latest_date_variable}}:=max(date, na.rm=TRUE)) %>%
     ungroup()
-  
+
   post_index_date <- get(index_date_merge_tablename) %>%
     filter(date>index_date) %>%
     group_by(patid) %>%
     summarise({{post_index_date_date_variable}}:=min(date, na.rm=TRUE)) %>%
     ungroup()
-  
+
   medications <- medications %>%
-    left_join(pre_index_date, by="patid") %>%
-    left_join(post_index_date, by="patid") %>%
+    left_join(pre_index_date, by=c("patid")) %>%
+    left_join(post_index_date, by=c("patid")) %>%
     analysis$cached(interim_medications_table, unique_indexes="patid")
-  
+
 }
 
 
 # Cache final version
 
-medications_2020 <- medications %>% analysis$cached("medications_2020_jul", unique_indexes="patid")
+medications <- medications %>% analysis$cached("medications_advanced_ckd", unique_indexes="patid")
