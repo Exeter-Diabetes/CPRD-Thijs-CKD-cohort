@@ -287,7 +287,7 @@ baseline_biomarkers <- baseline_biomarkers %>% analysis$cached("biomarkers_advan
 #### join up and cache
 analysis = cprd$analysis(analysis_prefix)
 advanced_ckd <- advanced_ckd %>%
-  select(patid, preckdstage, preckdstagedate, egfr) %>%
+  select(patid, preckdstage, preckdstagedate) %>%
   inner_join((dob %>% select(patid, dob)), by="patid") %>%
   left_join((cprd$tables$patient %>% select(patid, gender, regstartdate, regenddate, pracid, cprd_ddate)), by="patid") %>%
   left_join((cprd$tables$practice %>% select(pracid, lcd, region)), by="pracid") %>%
