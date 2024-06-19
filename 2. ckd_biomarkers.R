@@ -24,7 +24,7 @@ cprd = CPRDData$new(cprdEnv = "test-remote-full", cprdConf = "C:/Users/tj358/One
 codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
 
-analysis_prefix <- "thijs_test"
+analysis_prefix <- "ckd"
 
 analysis = cprd$analysis(analysis_prefix)
 
@@ -246,38 +246,38 @@ for (i in biomarkers_no_height) {
   
   print(i)
   
-  drug_merge_tablename <- paste0("full_", i, "_drug_merge")
+  drug_merge_tablename <- paste0("full_", i, "_index_date_merge")
   interim_baseline_biomarker_table <- paste0("baseline_biomarkers_interim_", i)
   pre_biomarker_variable <- paste0("pre", i)
   pre_biomarker_date_variable <- paste0("pre", i, "date")
-  pre_biomarker_drugdiff_variable <- paste0("pre", i, "drugdiff")
+  pre_biomarker_diff_variable <- paste0("pre", i, "diff")
   
   
   data <- get(drug_merge_tablename) %>%
-    filter(drugdatediff<=7 & drugdatediff>=-730) %>%
+    filter(datediff<=7 & datediff>=-730) %>%
     
-    group_by(patid, dstartdate, drugclass) %>%
+    group_by(patid, index_date) %>%
     
-    mutate(min_timediff=min(abs(drugdatediff), na.rm=TRUE)) %>%
-    filter(abs(drugdatediff)==min_timediff) %>%
+    mutate(min_timediff=min(abs(datediff), na.rm=TRUE)) %>%
+    filter(abs(datediff)==min_timediff) %>%
     
     mutate(pre_biomarker=ifelse(i=="egfr", max(testvalue, na.rm=TRUE), min(testvalue, na.rm=TRUE))) %>%
     filter(pre_biomarker==testvalue) %>%
     
-    dbplyr::window_order(drugdatediff) %>%
+    dbplyr::window_order(datediff) %>%
     filter(row_number()==1) %>%
     
     ungroup() %>%
     
     relocate(pre_biomarker, .after=patid) %>%
     relocate(date, .after=pre_biomarker) %>%
-    relocate(drugdatediff, .after=date) %>%
+    relocate(datediff, .after=date) %>%
     
     rename({{pre_biomarker_variable}}:=pre_biomarker,
            {{pre_biomarker_date_variable}}:=date,
-           {{pre_biomarker_drugdiff_variable}}:=drugdatediff) %>%
+           {{pre_biomarker_diff_variable}}:=datediff) %>%
     
-    select(-c(testvalue, druginstance, min_timediff, timetochange, timetoaddrem, multi_drug_start, nextdrugchange, nextdcdate))
+    select(-c(testvalue, min_timediff))
   
   
   baseline_biomarkers <- baseline_biomarkers %>%
@@ -289,11 +289,11 @@ for (i in biomarkers_no_height) {
 
 ## Height - only keep readings at/post drug start date, and find mean
 
-baseline_height <- full_height_drug_merge %>%
+baseline_height <- full_height_index_date_merge %>%
   
-  filter(drugdatediff>=0) %>%
+  filter(datediff>=0) %>%
   
-  group_by(patid, dstartdate, drugclass) %>%
+  group_by(patid, index_date) %>%
   
   summarise(height=mean(testvalue, na.rm=TRUE)) %>%
   
@@ -307,4 +307,4 @@ baseline_biomarkers <- baseline_biomarkers %>%
 analysis = cprd$analysis(analysis_prefix)
 
 baseline_biomarkers <- baseline_biomarkers %>%
-  analysis$cached("biomarkers_advanced_ckd", unique_indexes=c("patid", "index_date"))
+  analysis$cached("biomarkers_advanced_ckd", indexes=c("patid", "index_date"))

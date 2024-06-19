@@ -15,7 +15,7 @@ current_list <- codesets$listCodeSets()
 minimum_date <- as.Date("2010-01-01")
 end_date <- as.Date("2020-10-31")
 
-analysis_prefix <- "thijs_test"
+analysis_prefix <- "ckd"
 analysis = cprd$analysis(analysis_prefix)
 
 ############################################################################################

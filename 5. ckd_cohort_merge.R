@@ -11,11 +11,9 @@ codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
 current_list <- codesets$listCodeSets()
 
-
-minimum_date <- as.Date("2010-01-01")
 end_date <- as.Date("2020-10-31")
 
-analysis_prefix <- "thijs_test"
+analysis_prefix <- "ckd"
 analysis = cprd$analysis(analysis_prefix)
 
 ############################################################################################
@@ -31,6 +29,7 @@ ethnicity <- ethnicity %>% analysis$cached("gp_ethnicity")
 language <- language %>% analysis$cached("gp_language")
 
 analysis = cprd$analysis(analysis_prefix)
+dob <- dob %>% analysis$cached("dob")
 comorbidities <- comorbidities %>% analysis$cached("comorbidities_advanced_ckd", unique_indexes="patid")
 medications <- medications %>% analysis$cached("medications_advanced_ckd", unique_indexes = "patid")
 baseline_biomarkers <- baseline_biomarkers %>% analysis$cached("biomarkers_advanced_ckd")
@@ -61,7 +60,6 @@ advanced_ckd <- advanced_ckd %>%
   left_join(language,  by = "patid") %>%
   
   select(patid, gender, dob, index_date, pracid, prac_region=region, 
-         preckdstage, preckdstagedate, 
          gp_5cat_ethnicity, gp_16cat_ethnicity, gp_qrisk2_ethnicity, 
          language_cat=gp_language_cat,
          #         imd2015_10, 
@@ -72,7 +70,13 @@ advanced_ckd <- advanced_ckd %>%
   analysis$cached("ckd_cohort_im", unique_indexes="patid", indexes=c("gender", "dob", "index_date"))
 
 ckd_cohort <- advanced_ckd %>%
-  inner_join(comorbidities, by="patid") %>%
-  inner_join(medications, by="patid") %>%
-  inner_join(baseline_biomarkers, by="patid")
-analysis$cached("ckd_cohort", unique_indexes="patid", indexes=c("gender", "dob", "index_date"))
+  inner_join(comorbidities, by=c("patid", "index_date")) %>%
+  inner_join(medications, by=c("patid", "index_date")) %>%
+  inner_join(baseline_biomarkers, by=c("patid", "index_date"))
+
+ckd_cohort <- ckd_cohort %>% analysis$cached("advanced_ckd_cohort", unique_indexes="patid", indexes=c("gender", "dob", "index_date"))
+
+# ckd_cohort <- collect(ckd_cohort)
+# setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2023/Raw data")
+# today <- as.character(Sys.Date(), format="%Y%m%d")
+# save(ckd_cohort, file=paste0(today, "_advanced_ckd_cohort.Rda"))
