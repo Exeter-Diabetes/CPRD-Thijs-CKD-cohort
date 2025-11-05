@@ -6,92 +6,26 @@ library(aurum)
 library(EHRBiomarkr)
 rm(list=ls())
 
-cprd = CPRDData$new(cprdEnv = "test-remote-full", cprdConf = "C:/Users/tj358/OneDrive - University of Exeter/CPRD/aurum.yaml")
+
+cprd = CPRDData$new(cprdEnv = "nondiabetes-jun2024",cprdConf = "C:/Users/tj358/OneDrive - University of Exeter/CPRD/aurum.yaml")
+
+
 codesets = cprd$codesets()
-codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
-current_list <- codesets$listCodeSets()
-
-
-minimum_date <- as.Date("2010-01-01")
-end_date <- as.Date("2020-10-31")
+codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 analysis_prefix <- "ckd"
 analysis = cprd$analysis(analysis_prefix)
 
 ############################################################################################
 
-# Get clean creatinine readings and convert to eGFR
+# get egfr
+analysis = cprd$analysis("all_patid")
 
-## Get raw creatinine readings
-raw_creatinine_blood_medcodes <- cprd$tables$observation %>%
-  inner_join(codes$creatinine_blood, by="medcodeid") %>%
-  filter(obsdate > minimum_date) %>%  # select observations after "minimum date" only
-  analysis$cached("raw_creatinine_blood_medcodes", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
-
-## Clean creatinine readings
-clean_creatinine_blood_medcodes <- raw_creatinine_blood_medcodes %>%
-  group_by(patid, obsdate) %>%
-  summarise(testvalue=mean(testvalue, na.rm=TRUE)) %>%
-  ungroup() %>%
-  inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  # filter(obsdate>=min_dob & obsdate<=gp_ons_end_date) %>% ## "full" dataset does not have linkage to ONS data, therefore variable gp_ons_end_date substituted with gp_end_date
-  filter(obsdate>=min_dob & obsdate<=gp_end_date) %>%
-  select(patid, date=obsdate, testvalue) %>%
-  analysis$cached("clean_creatinine_blood_medcodes", indexes=c("patid", "date", "testvalue"))
-
-clean_creatinine_blood_medcodes %>% count()
-#74,511,626
-
-## Convert to eGFR
-
-### Need DOB from DOB table
-dob <- cprd$tables$observation %>%
-  inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  filter(obsdate>=min_dob) %>%
-  select(patid, obsdate) %>%
-  group_by(patid) %>%
-  summarise(earliest_medcode=min(obsdate, na.rm=TRUE)) %>%
-  ungroup() %>%
-  analysis$cached("earliest_medcode", unique_indexes="patid")
-
-#### Check count
-dob %>% count()
-#### 47,466,507 
-
-#### No-one has missing dob or earliest_medcode so pmin (runs as 'LEAST' in MySQL) works
-dob <- dob %>%
-  inner_join(cprd$tables$patient, by="patid") %>%
-  mutate(dob=as.Date(ifelse(is.na(mob), paste0(yob,"-07-01"), paste0(yob, "-",mob,"-15")))) %>%
-  mutate(dob=pmin(dob, earliest_medcode, na.rm=TRUE)) %>%
-  select(patid, dob, mob, yob, regstartdate) %>%
-  analysis$cached("dob", unique_indexes="patid")
-
-# there are a number of "inplausible" dates, however they do not match any of the rows in clean_egfr_medcodes so they do not pose a problem
-
-# join with dob table to get age/sex; remove negative / zero values of creatinine
-clean_egfr_medcodes <- clean_creatinine_blood_medcodes %>%
-  inner_join((dob %>% select(patid, dob)), by="patid") %>%
-  inner_join((cprd$tables$patient %>% select(patid, gender)), by="patid") %>%
-  mutate(age_at_creat=(datediff(date, dob))/365.25,
-         sex=ifelse(gender==1, "male", ifelse(gender==2, "female", NA))) %>%
-  select(-c(dob, gender)) %>%
-  rename(creatinine=testvalue) %>%
-  mutate(creatinine=ifelse(creatinine < 0, -creatinine, ifelse(creatinine == 0, NA, creatinine))) %>%
-  analysis$cached("clean_egfr_medcodes_interim", indexes=c("patid", "date"))
-
-clean_egfr_medcodes %>% count()
-# 74,511,626
-
-# calculate egfr and save
 clean_egfr_medcodes <- clean_egfr_medcodes %>%
-  ckd_epi_2021_egfr(creatinine=creatinine, sex=sex, age_at_creatinine=age_at_creat) %>%
-  select(-c(sex, age_at_creat)) %>%
-  rename(egfr=ckd_epi_2021_egfr) %>%
-  filter(!is.na(egfr)) %>%
-  analysis$cached("clean_egfr_medcodes", indexes=c("patid", "date", "egfr"))
+   analysis$cached("clean_egfr_medcodes", indexes=c("patid", "date", "testvalue"))
 
 clean_egfr_medcodes %>% count()
-#73,788,516 - lose readings of people with sex == NA or with missing creatinine
+#109,785,372 - lose readings of people with sex == NA or with missing creatinine
 
 
 ################################################################################################################################
@@ -99,6 +33,7 @@ clean_egfr_medcodes %>% count()
 # Convert eGFR to CKD stage
 
 ckd_stages_from_all_egfr <- clean_egfr_medcodes %>%
+  rename(egfr = testvalue) %>%
   mutate(ckd_stage=ifelse(egfr<15, "stage_5",
                           ifelse(egfr<30, "stage_4",
                                  ifelse(egfr<45, "stage_3b",
@@ -154,16 +89,16 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   group_by(patid, ckd_stage ,indx) %>%
   summarise(first_test_date=min(ckd_start,na.rm=TRUE),
             last_test_date=max(ckd_start,na.rm=TRUE),
-            end_date=max(ckd_end,na.rm=TRUE),
+            maximum_date=max(ckd_end,na.rm=TRUE),
             test_count=max(patid_row_id, na.rm=TRUE)-min(patid_row_id, na.rm=TRUE)+1) %>%
   ungroup() %>%
   analysis$cached("ckd_stages_from_algorithm_interim_1",indexes=c("patid", "ckd_stage", "test_count", "first_test_date", "last_test_date"))
 
 ckd_stages_from_algorithm %>% count()
-#26,680,683
+#39,323,495
 
 ckd_stages_from_algorithm %>% summarise(total=sum(test_count, na.rm=TRUE))
-#total number of tests: 73,788,516 as above
+#total number of tests: 109,785,372 as above
 
 
 ### C) Remove periods with 1 reading, or with multiple readings but <90 days between first and last test, and cache
@@ -173,7 +108,7 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   analysis$cached("ckd_stages_from_algorithm_interim_2",indexes=c("patid","ckd_stage","first_test_date"))
 
 ckd_stages_from_algorithm %>% count()
-#12,075,563
+#17,886,174
 
 
 ################################################################################################################################
@@ -181,7 +116,6 @@ ckd_stages_from_algorithm %>% count()
 # Combine with CKD5 medcodes/ICD10/OPCS4 codes
 
 ## Get raw CKD5 codes and clean
-### All are already in all_patid tables on MySQL from 4_mm_comorbidities script
 analysis = cprd$analysis("all_patid")
 ### Medcodes
 raw_ckd5_code_medcodes <- raw_ckd5_medcodes %>% analysis$cached("raw_ckd5_code_medcodes")
@@ -192,7 +126,6 @@ raw_ckd5_code_icd10 <- raw_ckd5_icd10 %>% analysis$cached("raw_ckd5_code_icd10")
 ### OPCS4 codes
 raw_ckd5_code_opcs4 <- raw_ckd5_opcs4 %>% analysis$cached("raw_ckd5_code_opcs4")
 
-analysis = cprd$analysis(analysis_prefix)
 ## Clean, find earliest date per person, and re-cache
 
 earliest_clean_ckd5 <- raw_ckd5_code_medcodes %>%
@@ -201,7 +134,7 @@ earliest_clean_ckd5 <- raw_ckd5_code_medcodes %>%
   union_all((raw_ckd5_code_icd10 %>% select(patid, date=epistart) %>% mutate(source="hes"))) %>%
   union_all((raw_ckd5_code_opcs4 %>% select(patid, date=evdate) %>% mutate(source="hes"))) %>%
   inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  #filter(date>=min_dob & ((source=="gp" & date<=gp_ons_end_date) | (source=="hes" & (is.na(gp_ons_death_date) | date<=gp_ons_death_date)))) %>% ## as above - ONS variables substituted
+  #filter(date>=min_dob & ((source=="gp" & date<=gp_ons_maximum_date) | (source=="hes" & (is.na(gp_ons_death_date) | date<=gp_ons_death_date)))) %>% ## as above - ONS variables substituted
   filter(date>=min_dob & ((source=="gp" & date<=gp_end_date) | (source=="hes" & (is.na(gp_end_date) | date<=gp_end_date)))) %>%
   group_by(patid) %>%
   summarise(first_test_date=min(date, na.rm=TRUE)) %>%
@@ -254,24 +187,102 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
          stage_3b=ifelse(!is.na(stage_3b) & !is.na(stage_4) & stage_3b>stage_4, NA, stage_3b),
          stage_3b=ifelse(!is.na(stage_3b) & !is.na(stage_5) & stage_3b>stage_5, NA, stage_3b),
          stage_4=ifelse(!is.na(stage_4) & !is.na(stage_5) & stage_4>stage_5, NA, stage_4)) %>%
-  analysis$cached("ckd_stages_from_algorithm", unique_indexes="patid")
+  analysis$cached("ckd_stages_from_algorithm_interim_4", unique_indexes="patid")
 
 ckd_stages_from_algorithm %>% count()        
 #8,466,065
 
 ################################################################################################################################
 
-# create index date for date of first CKD stage 4 or 5
+# load in acr data
+clean_acr_medcodes <- clean_acr_medcodes %>%
+  analysis$cached("clean_acr_medcodes", indexes=c("patid", "date", "testvalue"))
 
+clean_acr_from_separate_medcodes <- clean_acr_from_separate_medcodes %>%
+  analysis$cached("clean_acr_from_separate_medcodes", indexes=c("patid", "date", "testvalue"))
+
+all_acr <- clean_acr_medcodes %>%
+  select(patid, date, testvalue) %>%
+  union_all(clean_acr_from_separate_medcodes %>%
+              select(patid, date, testvalue))
+
+# select those with acr >=3 mg/mmol
+acr_high <- all_acr %>%
+  filter(testvalue >= 3)
+
+acr_span <- acr_high %>%
+  group_by(patid) %>%
+  summarise(
+    min_date = min(date, na.rm = TRUE),
+    max_date = max(date, na.rm = TRUE),
+    n_tests = n()
+  )
+
+# confirm 2 readings 3 months apart or longer
+confirmed_acr3 <- acr_span %>%
+  filter(n_tests >= 2 & datediff(max_date, min_date) >= 90) %>%
+  mutate(confirmed_acr3_date = min_date) %>%
+  select(patid, confirmed_acr3_date) %>%
+  analysis$cached("confirmed_acr3", indexes = c("patid", "confirmed_acr3_date"))
+
+# join with ckd stage
+ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
+  left_join(confirmed_acr3, by = "patid") %>%
+  mutate(
+    stage_1 = case_when(
+      is.na(stage_1) ~ sql("NULL"),
+      is.na(confirmed_acr3_date) ~ sql("NULL"),
+      confirmed_acr3_date <= stage_1 ~ stage_1,
+      confirmed_acr3_date > stage_1  ~ confirmed_acr3_date
+    ),
+    stage_2 = case_when(
+      is.na(stage_2) ~ sql("NULL"),
+      is.na(confirmed_acr3_date) ~ sql("NULL"),
+      confirmed_acr3_date <= stage_2 ~ stage_2,
+      confirmed_acr3_date > stage_2  ~ confirmed_acr3_date
+    )
+  ) %>%
+  analysis$cached("ckd_stages_from_algorithm",
+                  indexes = c("patid"))
+
+
+######################################################################################
 analysis = cprd$analysis(analysis_prefix)
 
-advanced_ckd <- ckd_stages_from_algorithm %>%
-  filter(!is.na(stage_4) | !is.na(stage_5)) %>%  # select rows with ckd stage 4/5 only
-  mutate(index_date=ifelse(is.na(stage_4) | is.na(stage_5), coalesce(stage_4, stage_5), ifelse(stage_4 < stage_5, stage_4, stage_5))) %>% # set index date as first date of ckd stage 4 or 5
-  select(patid, index_date) %>%
-  analysis$cached("advanced_ckd_index_date", unique_indexes="patid")
+# get dates at 6 month intervals
+dates <- seq(from = as.Date("2019-03-01"),
+             to   = as.Date("2024-03-01"),
+             by   = "6 months")
+
+date_strings <- format(dates, "%Y-%m-%d")
+
+
+for (d in date_strings) {
+  print(d)
+  index_date <- as.Date(d)
   
-advanced_ckd %>% count()
-
-
-
+  
+  ckd_stage_drug_merge <- cprd$tables$patient %>%
+    select(patid) %>%
+    left_join(ckd_stages_from_algorithm, by="patid") %>%
+    mutate(preckdstage=ifelse(!is.na(stage_5) & datediff(stage_5, index_date)<=7, "stage_5",
+                              ifelse(!is.na(stage_4) & datediff(stage_4, index_date)<=7, "stage_4",
+                                     ifelse(!is.na(stage_3b) & datediff(stage_3b, index_date)<=7, "stage_3b",
+                                            ifelse(!is.na(stage_3a) & datediff(stage_3a, index_date)<=7, "stage_3a",
+                                                   ifelse(!is.na(stage_2) & datediff(stage_2, index_date)<=7, "stage_2",
+                                                          ifelse(!is.na(stage_1) & datediff(stage_1, index_date)<=7, "stage_1", NA)))))),
+           
+           preckdstagedate=ifelse(preckdstage=="stage_5", stage_5,
+                                  ifelse(preckdstage=="stage_4", stage_4,
+                                         ifelse(preckdstage=="stage_3b", stage_3b,
+                                                ifelse(preckdstage=="stage_3a", stage_3a,
+                                                       ifelse(preckdstage=="stage_2", stage_2,
+                                                              ifelse(preckdstage=="stage_1", stage_1, NA)))))),
+           
+           preckdstagedatediff=datediff(preckdstagedate, index_date)) %>%
+    
+    select(patid, preckdstage, preckdstagedate, preckdstagedatediff) %>%
+    
+    analysis$cached(paste0(d, "_ckd_stages"), unique_indexes="patid")
+  
+}
