@@ -15,7 +15,6 @@ codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 
 analysis_prefix <- "ckd"
-analysis = cprd$analysis(analysis_prefix)
 
 #Data quality check - should only include acceptable' patients (see CPRD data specification for definition)
 cprd$tables$patient %>% count() #45,037,869 - total patient count in download
