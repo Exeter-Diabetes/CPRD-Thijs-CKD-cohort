@@ -250,11 +250,12 @@ for (d in date_strings) {
     mutate_if(is.integer64, as.integer)
   
   # Create a valid name (no dashes)
-  df_name <- paste0("prev_", gsub("-", "_", d))
+  df_name <- paste0("prev_", gsub("-", "_", d), "_nondm")
   
   # Assign name
   assign(df_name, prev_cohort, envir = .GlobalEnv)
   
-  save(list = df_name, file=paste0(d, "_prev_ckd_cohort.Rda"))
+  setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
+  save(list = df_name, file=paste0(d, "_prev_ckd_cohort_nondm.Rda"))
   
 }

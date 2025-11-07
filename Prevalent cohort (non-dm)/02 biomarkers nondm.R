@@ -15,39 +15,6 @@ codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 analysis_prefix <- "ckd"
 
-# set custom limits for biomarker cleaning
-acr_limits <- EHRBiomarkr::biomarkerAcceptableLimits
-acr_limits$acr$upper <- 450 # set upper limit for ACR at 450 mg/mmol
-acr_limits$pcr$upper <- 1500 # set upper limit for PCR at 1500 mg/mmol
-
-clean_biomarker_units_acr <-  function (dataset, biomrkr_col, biomrkr) 
-{
-  lower_limit <- unname(unlist(lapply(acr_limits[biomrkr], 
-                                      function(y) lapply(y, as.numeric)))[1])
-  upper_limit <- unname(unlist(lapply(acr_limits[biomrkr], 
-                                      function(y) lapply(y, as.numeric)))[2])
-  if (biomrkr == "haematocrit") {
-    message("clean_biomarker_values will remove haematocrit values which are not in proportion out of 1")
-  }
-  if (biomrkr == "haemoglobin") {
-    message("clean_biomarker_values will remove haemoglobin values which are not in g/L")
-  }
-  if (biomrkr == "hba1c") {
-    message("clean_biomarker_values will remove HbA1c values which are not in mmol/mol")
-  }
-  if (biomrkr == "weight") {
-    message("clean_biomarker_values uses weight limits for adults")
-  }
-  if (biomrkr == "height") {
-    message("clean_biomarker_values uses height limits for adults")
-  }
-  message("Values <", lower_limit, ", >", upper_limit, " and missing values removed")
-  biomrkr_column <- as.symbol(deparse(substitute(biomrkr_col)))
-  return(dataset %>% dplyr::filter(!!biomrkr_column >= lower_limit & 
-                                     !!biomrkr_column <= upper_limit))
-}
-
-
 ############################################################################################
 
 biomarkers <- c("creatinine_blood", "acr", "pcr", "albumin_urine", "creatinine_urine",
@@ -271,7 +238,9 @@ for (d in date_strings) {
   
   ## Height - only keep readings at/post-index date, and find mean
   
-  baseline_height <- full_height_index_date_merge %>%
+  table_name = paste0(d, "_full_height_merge")
+  
+  baseline_height <- get(table_name) %>%
     filter(datediff>=0) %>%
     group_by(patid) %>%
     summarise(height=mean(testvalue, na.rm=TRUE)) %>%

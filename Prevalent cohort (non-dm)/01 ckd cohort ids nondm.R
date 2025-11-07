@@ -58,6 +58,8 @@ cprd$tables$patient %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_j
 ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   analysis$cached("ckd_stages_from_algorithm", indexes = c("patid"))
 
+analysis = cprd$analysis(analysis_prefix)
+
 ckd_ids <- ckd_stages_from_algorithm %>% 
   filter(!(is.na(stage_1) & is.na(stage_2) & is.na(stage_3a) & 
              is.na(stage_3b) & is.na(stage_4) & is.na(stage_5))) %>%
@@ -71,12 +73,15 @@ ckd_ids <- ckd_stages_from_algorithm %>%
         ifelse(is.na(stage_4), as.Date("2050-01-01"), stage_4),
         ifelse(is.na(stage_5), as.Date("2050-01-01"), stage_5),
         na.rm = TRUE
-      ),
-      origin = "1970-01-01"
+      )
     )
   ) %>%
   mutate(first_ckd_date = ifelse(first_ckd_date == as.Date("2050-01-01"), NA, first_ckd_date)) %>%
-  distinct(patid) %>% 
+  group_by(patid) %>%
+  dbplyr::window_order(first_ckd_date) %>%
+  distinct(patid, .keep_all = TRUE) %>%
+  ungroup() %>%
+  distinct(patid, .keep_all = TRUE) %>%
   select(-contains("stage"), -confirmed_acr3_date) %>%
   analysis$cached("ckd_ids_im", unique_indexes="patid")
 
@@ -126,7 +131,10 @@ dob <- dob %>% analysis$cached("dob", unique_indexes="patid")
 analysis = cprd$analysis("all_patid")
 ethnicity <- ethnicity %>% analysis$cached("ethnicity", unique_indexes="patid")
 
+
 # join ids with dob and other data
+analysis = cprd$analysis(analysis_prefix)
+
 ckd_cohort <- ckd_ids %>%
   left_join(dob, by="patid") %>%
   left_join((cprd$tables$patient %>% select(patid, gender, regenddate, pracid)), by="patid") %>%
