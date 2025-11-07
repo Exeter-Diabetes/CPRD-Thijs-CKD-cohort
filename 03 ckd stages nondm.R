@@ -256,7 +256,7 @@ dates <- seq(from = as.Date("2019-03-01"),
 
 date_strings <- format(dates, "%Y-%m-%d")
 
-
+# define CKD stage at each time point
 for (d in date_strings) {
   print(d)
   index_date <- as.Date(d)

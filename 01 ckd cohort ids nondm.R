@@ -1,0 +1,147 @@
+############################################################################################
+
+# Setup
+library(tidyverse)
+library(aurum)
+library(EHRBiomarkr)
+rm(list=ls())
+
+
+cprd = CPRDData$new(cprdEnv = "nondiabetes-jun2024",cprdConf = "C:/Users/tj358/OneDrive - University of Exeter/CPRD/aurum.yaml")
+
+
+codesets = cprd$codesets()
+codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
+
+
+analysis_prefix <- "ckd"
+analysis = cprd$analysis(analysis_prefix)
+
+#Data quality check - should only include acceptable' patients (see CPRD data specification for definition)
+cprd$tables$patient %>% count() #45,037,869 - total patient count in download
+cprd$tables$patient %>% filter(acceptable ==1) %>% count() #45,037,869
+cprd$tables$patient %>% filter(patienttypeid ==3) %>% count() #45,037,869
+#All are 'acceptable' and have patienttypeid==3 ('Regular')
+
+############################################################################################
+
+##CPRD recommend excluding 44 practices (as below) that appear likely to have merged into other contributing practices (patient data could be duplicated)
+##Define patients to remove later
+analysis = cprd$analysis("all_patid")
+
+practice_exclusion_ids <- cprd$tables$patient %>% 
+  filter(pracid == "20024" | pracid == "20036" |pracid == "20091" |pracid == "20171" | pracid == "20178" |pracid == "20202" | pracid == "20254" | pracid == "20389" |pracid == "20430" |pracid == "20452" |
+           pracid == "20469" | pracid == "20487" | pracid == "20552" | pracid == "20554" | pracid == "20640" | pracid == "20717" | pracid == "20734" | pracid == "20737" | pracid == "20740" | pracid == "20790" |
+           pracid == "20803" | pracid == "20822" | pracid == "20868" | pracid == "20912" | pracid == "20996" | pracid == "21001" | pracid == "21015" | pracid == "21078" | pracid == "21112" | pracid == "21118" |
+           pracid == "21172" | pracid == "21173" | pracid == "21277" | pracid == "21281" | pracid == "21331" | pracid == "21334" | pracid == "21390" | pracid == "21430" | pracid == "21444" | pracid == "21451" |
+           pracid == "21529" | pracid == "21553" | pracid == "21558" | pracid == "21585") %>%
+  analysis$cached("practice_exclusion_ids")
+
+practice_exclusion_ids %>% count() #30759
+
+
+############################################################################################
+
+##Define patients with gender=3 (indeterminate) to remove later
+
+gender_exclusion_ids <- cprd$tables$patient %>% 
+  filter(gender==3) %>%
+  analysis$cached("gender_exclusion_ids")
+
+gender_exclusion_ids %>% count() #43
+
+cprd$tables$patient %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_join(gender_exclusion_ids, by="patid") %>% count() #2697197
+
+
+############################################################################################
+
+# load ckd stages table
+ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
+  analysis$cached("ckd_stages_from_algorithm", indexes = c("patid"))
+
+ckd_ids <- ckd_stages_from_algorithm %>% 
+  filter(!(is.na(stage_1) & is.na(stage_2) & is.na(stage_3a) & 
+             is.na(stage_3b) & is.na(stage_4) & is.na(stage_5))) %>%
+  mutate(
+    first_ckd_date = as.Date(
+      pmin(
+        ifelse(is.na(stage_1), as.Date("2050-01-01"), stage_1),
+        ifelse(is.na(stage_2), as.Date("2050-01-01"), stage_2),
+        ifelse(is.na(stage_3a), as.Date("2050-01-01"), stage_3a),
+        ifelse(is.na(stage_3b), as.Date("2050-01-01"), stage_3b),
+        ifelse(is.na(stage_4), as.Date("2050-01-01"), stage_4),
+        ifelse(is.na(stage_5), as.Date("2050-01-01"), stage_5),
+        na.rm = TRUE
+      ),
+      origin = "1970-01-01"
+    )
+  ) %>%
+  mutate(first_ckd_date = ifelse(first_ckd_date == as.Date("2050-01-01"), NA, first_ckd_date)) %>%
+  distinct(patid) %>% 
+  select(-contains("stage"), -confirmed_acr3_date) %>%
+  analysis$cached("ckd_ids_im", unique_indexes="patid")
+
+ckd_ids %>% count() #2137263
+
+ckd_ids %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_join(gender_exclusion_ids, by="patid") %>% count() #2110415
+
+
+ckd_ids <- ckd_ids %>%
+  anti_join(practice_exclusion_ids, by="patid") %>% 
+  anti_join(gender_exclusion_ids, by="patid") %>%
+  analysis$cached("ckd_ids", unique_indexes="patid")
+
+ckd_ids %>% count() #2137263
+
+
+############################################################################################
+
+# join with tables
+
+# dob 
+analysis = cprd$analysis("all")
+
+dob <- cprd$tables$observation %>%
+  inner_join(cprd$tables$validDateLookup, by="patid") %>%
+  filter(obsdate>=min_dob) %>%
+  group_by(patid) %>%
+  summarise(earliest_medcode=min(obsdate, na.rm=TRUE)) %>%
+  ungroup() %>%
+  analysis$cached("earliest_medcode", unique_indexes="patid")
+
+#### Check count
+dob %>% count() #2727999 - everyone in download
+
+#### No-one has missing dob or earliest_medcode so pmin (runs as 'LEAST' in MySQL) works
+dob <- dob %>%
+  inner_join(cprd$tables$patient, by="patid") %>%
+  mutate(dob=as.Date(ifelse(is.na(mob), paste0(yob,"-06-30"), paste0(yob, "-",mob,"-15")))) %>%
+  inner_join(cprd$tables$validDateLookup, by = "patid") %>%
+  mutate(dob=pmin(dob, earliest_medcode, na.rm=TRUE)) %>%
+  mutate(dob=ifelse(regstartdate>=min_dob & regstartdate<dob, regstartdate, dob)) %>%
+  select(patid, dob = dob, mob, yob, regstartdate) %>%
+  analysis$cached("dob", unique_indexes="patid")
+
+dob <- dob %>% analysis$cached("dob", unique_indexes="patid")
+
+analysis = cprd$analysis("all_patid")
+ethnicity <- ethnicity %>% analysis$cached("ethnicity", unique_indexes="patid")
+
+# join ids with dob and other data
+ckd_cohort <- ckd_ids %>%
+  left_join(dob, by="patid") %>%
+  left_join((cprd$tables$patient %>% select(patid, gender, regenddate, pracid)), by="patid") %>%
+  left_join((cprd$tables$practice %>% select(pracid, lcd, region)), by="pracid") %>%
+  left_join((cprd$tables$onsDeath %>% select(patid, reg_date_of_death)), by="patid") %>%
+  left_join((cprd$tables$patientImd %>% select(patid, imd_decile)), by="patid") %>%
+  left_join((cprd$tables$validDateLookup %>% select(patid, gp_end_date)), by="patid") %>%
+  left_join((cprd$tables$patidsWithLinkage %>% mutate(with_hes=1L) %>% select(patid, with_hes, hes_end_date)), by="patid") %>%
+  mutate(with_hes=ifelse(is.na(with_hes), 0L, 1L)) %>%
+  left_join(ethnicity, by="patid") %>%
+  select(patid, gender, dob, pracid, prac_region=region, ethnicity_5cat, ethnicity_16cat, ethnicity_qrisk2, imd_decile, regstartdate, gp_end_date, death_date=reg_date_of_death, with_hes, hes_end_date) %>%
+  analysis$cached("ckd_cohort", unique_indexes="patid", indexes=c("gender", "dob"))
+                  
+                  
+ckd_cohort %>% count() # 2081045
+
+############################################################################################

@@ -13,9 +13,6 @@ cprd = CPRDData$new(cprdEnv = "nondiabetes-jun2024",cprdConf = "C:/Users/tj358/O
 codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
-minimum_date <- as.Date("2019-03-01")
-maximum_date <- as.Date("2024-03-01")
-
 analysis_prefix <- "ckd"
 
 ############################################################################################

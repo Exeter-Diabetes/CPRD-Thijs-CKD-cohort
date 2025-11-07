@@ -52,7 +52,7 @@ clean_biomarker_units_acr <-  function (dataset, biomrkr_col, biomrkr)
 
 biomarkers <- c("creatinine_blood", "acr", "pcr", "albumin_urine", "creatinine_urine",
                 "albumin_blood", "haemoglobin", 
-                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c")
+                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl")
                 
 
 
