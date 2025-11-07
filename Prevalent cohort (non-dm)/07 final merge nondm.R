@@ -76,7 +76,8 @@ for (d in date_strings) {
     left_join(smoking, by="patid") %>%
     left_join(medications, by="patid") %>%
     mutate(index_date_age=datediff(index_date, dob)/365.25,
-           index_date_ckd_dur_all=datediff(index_date, first_ckd_date)/365.25) %>%
+           index_date_ckd_dur_all=datediff(index_date, first_ckd_date)/365.25,
+           index_date = index_date) %>%
     relocate(c(index_date_age, index_date_ckd_dur_all), .before=gender) %>%
     analysis$cached("final_merge_im_1", unique_indexes="patid")
   
