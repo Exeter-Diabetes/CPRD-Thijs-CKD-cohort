@@ -29,7 +29,6 @@ meds <- c("ace_inhibitors",
           "thiazide_diuretics",
           "loop_diuretics",
           "ksparing_diuretics",
-          "finerenone",
           "definite_genital_infection_meds",
           "topical_candidal_meds")
 

@@ -58,13 +58,11 @@ for (d in date_strings) {
   ## Prevalent cohort: registered on 01/02/2020 and with diagnosis at/before then and with linked HES records (and n_patid_hes<=20).
   
   cohort_ids <- ckd_cohort %>%
-    filter(first_ckd_date<=index_date & regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date) & with_hes==1) %>%
+    filter(first_ckd_date<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date) & with_hes==1) %>%
     select(patid) %>%
     analysis$cached("cohort_ids", unique_indexes="patid")
   
   cohort_ids %>% count()
-  #613,318
-  
   
   final_merge <- cohort_ids %>%
     left_join(ckd_cohort, by="patid") %>%
@@ -77,7 +75,7 @@ for (d in date_strings) {
            index_date_ckd_dur_all=datediff(index_date, first_ckd_date)/365.25,
            index_date = index_date) %>%
     relocate(c(index_date_age, index_date_ckd_dur_all), .before=gender) %>%
-    analysis$cached("final_merge_im_1", unique_indexes="patid")
+    analysis$cached("final_merge", unique_indexes="patid")
   
   
   # ############################################################################################
@@ -254,7 +252,9 @@ for (d in date_strings) {
   # Assign name
   assign(df_name, prev_cohort, envir = .GlobalEnv)
   
+  today <- format(Sys.Date(), "%Y%m%d")
+  
   setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
-  save(list = df_name, file=paste0(d, "_prev_ckd_cohort_dm.Rda"))
+  save(list = df_name, file=paste0(today, "_prev_ckd_cohort_dm_", d, ".Rda"))
   
 }
