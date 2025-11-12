@@ -165,7 +165,7 @@ for (d in date_strings) {
     
     print(paste("merging index date ", d, " with", i, "code occurrences"))
     
-    index_date_merge_tablename <- paste0(d, "_full_", i, "_merge_")
+    index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")
     
     medcode_tablename <- paste0("raw_", i, "_medcodes")
     icd10_tablename <- paste0("raw_", i, "_icd10")
@@ -264,7 +264,7 @@ for (d in date_strings) {
     
     print(paste("working out pre- and post-index date code occurrences for ", i, " at ", d))
     
-    index_date_merge_tablename <- paste0(d, "_full_", i, "_merge_")
+    index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")
     interim_comorbidity_table <- paste0(d, "_comorbidities_im_", i)
     pre_index_date_earliest_date_variable <- paste0("pre_index_date_earliest_", i)
     pre_index_date_latest_date_variable <- paste0("pre_index_date_latest_", i)

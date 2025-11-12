@@ -79,7 +79,7 @@ for (d in date_strings) {
            index_date_ckd_dur_all=datediff(index_date, first_ckd_date)/365.25,
            index_date = index_date) %>%
     relocate(c(index_date_age, index_date_ckd_dur_all), .before=gender) %>%
-    analysis$cached("final_merge_im_1", unique_indexes="patid")
+    analysis$cached("final_merge", unique_indexes="patid")
   
   
   # ############################################################################################
@@ -248,7 +248,8 @@ for (d in date_strings) {
   }
   
   prev_cohort <- prev_cohort %>%
-    mutate_if(is.integer64, as.integer)
+    mutate_if(is.integer64, as.integer) %>%
+    mutate(index_date = as.Date(d))
   
   # Create a valid name (no dashes)
   df_name <- paste0("prev_", gsub("-", "_", d), "_nondm")

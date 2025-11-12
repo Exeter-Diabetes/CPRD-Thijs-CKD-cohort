@@ -244,7 +244,8 @@ for (d in date_strings) {
   }
   
   prev_cohort <- prev_cohort %>%
-    mutate_if(is.integer64, as.integer)
+    mutate_if(is.integer64, as.integer) %>%
+    mutate(index_date = as.Date(d))
   
   # Create a valid name (no dashes)
   df_name <- paste0("prev_", gsub("-", "_", d), "_dm")

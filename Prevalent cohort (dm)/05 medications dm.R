@@ -22,8 +22,6 @@ meds <- c("ace_inhibitors",
           "arb",
           "statins",
           "finerenone",
-          "sglt2",
-          "glp1",
           "beta_blockers",
           "ca_channel_blockers",
           "thiazide_diuretics",
@@ -51,10 +49,47 @@ for (i in meds) {
   
 }
 
+raw_oha_prodcodes <- cprd$tables$drugIssue %>%
+  inner_join(cprd$tables$ohaLookup, by="prodcodeid") %>%
+  analysis$cached("raw_oha_prodcodes", indexes=c("patid", "issuedate"))
+
+raw_insulin_prodcodes <- cprd$tables$drugIssue %>%
+  inner_join(codes$insulin, by="prodcodeid") %>%
+  analysis$cached("raw_insulin_prodcodes", indexes=c("patid", "issuedate"))
+
+clean_oha_prodcodes <- raw_oha_prodcodes %>%
+  inner_join(cprd$tables$validDateLookup, by="patid") %>%
+  filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
+  rename(date=issuedate) %>%
+  analysis$cached("clean_oha_prodcodes", indexes=c("patid", "issuedate"))
+
+clean_glp1_prodcodes <- clean_oha_prodcodes %>%
+  filter(drug_class_1=="GLP1" | drug_class_2=="GLP1") %>%
+  select(patid, date)
+
+clean_sglt2_prodcodes <- clean_oha_prodcodes %>%
+  filter(drug_class_1=="SGLT2" | drug_class_2=="SGLT2") %>%
+  select(patid, date)
+
+clean_insulin_prodcodes <- raw_insulin_prodcodes %>%
+  inner_join(cprd$tables$validDateLookup, by="patid") %>%
+  filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
+  rename(date=issuedate) %>%
+  analysis$cached("clean_insulin_prodcodes", indexes=c("patid", "issuedate"))
+
+clean_insulin_prodcodes <- clean_insulin_prodcodes %>%
+  select(patid, date) %>%
+  union_all(clean_oha_prodcodes %>%
+              filter(drug_class_1=="INS" | drug_class_2=="INS") %>%
+              select(patid, date))
+
+
+meds <- c(meds, "sglt2", "glp1", "insulin")
 
 ############################################################################################
 
 analysis = cprd$analysis(analysis_prefix)
+
 
 # get dates at 6 month intervals
 dates <- seq(from = as.Date("2019-03-01"),
@@ -73,6 +108,19 @@ for (d in date_strings) {
     
     print(i)
     
+    if (i=="glp1" | i=="sglt2" | i=="insulin") {
+      
+      clean_tablename <- paste0("clean_", i, "_prodcodes")
+      index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")
+      
+      data <- get(clean_tablename) %>%
+        mutate(datediff=datediff(date, index_date)) %>%
+        analysis$cached(index_date_merge_tablename, indexes="patid")
+      
+      assign(index_date_merge_tablename, data)
+      
+    } else {
+    
     raw_tablename <- paste0("raw_", i, "_prodcodes")
     index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")
     
@@ -89,6 +137,7 @@ for (d in date_strings) {
     
     assign(index_date_merge_tablename, data)
     
+    }
   }
   
   
