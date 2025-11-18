@@ -85,7 +85,7 @@ for (i in biomarkers) {
     
   } else {
     data <- raw_data %>%
-      clean_biomarker_units_acr(testvalue, i) %>%
+      clean_biomarker_units(testvalue, i) %>%
       #clean_biomarker_values(testvalue, i) %>%
       clean_biomarker_units(numunitid, i)
   }
@@ -158,10 +158,9 @@ date_strings <- format(dates, "%Y-%m-%d")
 
 for (d in date_strings) {
   print(d)
+  index_date = as.Date(d)
   
   for (i in biomarkers) {
-    
-    print(i)
     
     clean_tablename <- paste0("clean_", i, "_medcodes")
     index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")

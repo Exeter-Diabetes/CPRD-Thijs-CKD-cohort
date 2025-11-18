@@ -49,33 +49,25 @@ for (i in meds) {
   
 }
 
-raw_oha_prodcodes <- cprd$tables$drugIssue %>%
-  inner_join(cprd$tables$ohaLookup, by="prodcodeid") %>%
-  analysis$cached("raw_oha_prodcodes", indexes=c("patid", "issuedate"))
 
-raw_insulin_prodcodes <- cprd$tables$drugIssue %>%
-  inner_join(codes$insulin, by="prodcodeid") %>%
-  analysis$cached("raw_insulin_prodcodes", indexes=c("patid", "issuedate"))
+clean_oha_prodcodes <- clean_oha_prodcodes %>% analysis$cached("clean_oha_prodcodes")
 
-clean_oha_prodcodes <- raw_oha_prodcodes %>%
-  inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
-  rename(date=issuedate) %>%
-  analysis$cached("clean_oha_prodcodes", indexes=c("patid", "issuedate"))
+drugclasses <- c("Acarbose", "DPP4", "GIPGLP1", "Glinide", "GLP1", "MFN", "SGLT2", "SU", "TZD")
 
-clean_glp1_prodcodes <- clean_oha_prodcodes %>%
-  filter(drug_class_1=="GLP1" | drug_class_2=="GLP1") %>%
-  select(patid, date)
+for (dc in drugclasses) {
+  
+  prodcode_list_name = paste0("clean_", dc, "_prodcodes")
+  
+  prodcode_list <- clean_oha_prodcodes %>%
+    filter(drug_class_1 == dc | drug_class_2 == dc) %>%
+    select(patid, date)
+  
+  assign(prodcode_list_name, prodcode_list)
+  
+  
+}
 
-clean_sglt2_prodcodes <- clean_oha_prodcodes %>%
-  filter(drug_class_1=="SGLT2" | drug_class_2=="SGLT2") %>%
-  select(patid, date)
-
-clean_insulin_prodcodes <- raw_insulin_prodcodes %>%
-  inner_join(cprd$tables$validDateLookup, by="patid") %>%
-  filter(issuedate>=min_dob & issuedate<=gp_end_date) %>%
-  rename(date=issuedate) %>%
-  analysis$cached("clean_insulin_prodcodes", indexes=c("patid", "issuedate"))
+clean_insulin_prodcodes <- clean_insulin_prodcodes %>% analysis$cached("clean_insulin_prodcodes")
 
 clean_insulin_prodcodes <- clean_insulin_prodcodes %>%
   select(patid, date) %>%
@@ -84,7 +76,7 @@ clean_insulin_prodcodes <- clean_insulin_prodcodes %>%
               select(patid, date))
 
 
-meds <- c(meds, "sglt2", "glp1", "insulin")
+meds <- c(meds, drugclasses, "insulin")
 
 ############################################################################################
 
@@ -108,7 +100,7 @@ for (d in date_strings) {
     
     print(i)
     
-    if (i=="glp1" | i=="sglt2" | i=="insulin") {
+    if (i %in% drugclasses | i=="insulin") {
       
       clean_tablename <- paste0("clean_", i, "_prodcodes")
       index_date_merge_tablename <- paste0(d, "_full_", i, "_merge")

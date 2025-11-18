@@ -23,7 +23,7 @@ ckd_cohort <- ckd_cohort %>% analysis$cached("diabetes_ckd_cohort")
 ## Get index date
 
 # get dates at 6 month intervals
-dates <- seq(from = as.Date("2019-03-01"),
+dates <- seq(from = as.Date("2024-03-01"),
              to   = as.Date("2024-03-01"),
              by   = "6 months")
 
@@ -58,7 +58,11 @@ for (d in date_strings) {
   ## Prevalent cohort: registered on 01/02/2020 and with diagnosis at/before then and with linked HES records (and n_patid_hes<=20).
   
   cohort_ids <- ckd_cohort %>%
-    filter(first_ckd_date<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date) & with_hes==1) %>%
+    filter(first_ckd_date<=index_date & 
+             dm_diag_date_all<=index_date & 
+             regstartdate<=index_date & 
+             gp_end_date>=index_date & 
+             (is.na(death_date) | death_date>=index_date)) %>%
     select(patid) %>%
     analysis$cached("cohort_ids", unique_indexes="patid")
   
@@ -258,4 +262,10 @@ for (d in date_strings) {
   setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
   save(list = df_name, file=paste0(today, "_prev_ckd_cohort_dm_", d, ".Rda"))
   
+  
+  rm(medications)
+  rm(baseline_biomarkers)
+  rm(comorbidities)
+  rm(ckd_stages)
+  rm(smoking)
 }

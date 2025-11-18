@@ -36,7 +36,7 @@ practice_exclusion_ids <- cprd$tables$patient %>%
            pracid == "21529" | pracid == "21553" | pracid == "21558" | pracid == "21585") %>%
   analysis$cached("practice_exclusion_ids")
 
-practice_exclusion_ids %>% count() #30759
+practice_exclusion_ids %>% count() #672,504
 
 
 ############################################################################################
@@ -47,9 +47,9 @@ gender_exclusion_ids <- cprd$tables$patient %>%
   filter(gender==3) %>%
   analysis$cached("gender_exclusion_ids")
 
-gender_exclusion_ids %>% count() #43
+gender_exclusion_ids %>% count() #1767
 
-cprd$tables$patient %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_join(gender_exclusion_ids, by="patid") %>% count() #2697197
+cprd$tables$patient %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_join(gender_exclusion_ids, by="patid") %>% count() #44,363,638
 
 
 ############################################################################################
@@ -85,7 +85,7 @@ ckd_ids <- ckd_stages_from_algorithm %>%
   select(-contains("stage"), -confirmed_acr3_date) %>%
   analysis$cached("ckd_ids_im", unique_indexes="patid")
 
-ckd_ids %>% count() #2137263
+ckd_ids %>% count() #1452649
 
 ckd_ids %>% anti_join(practice_exclusion_ids, by="patid") %>% anti_join(gender_exclusion_ids, by="patid") %>% count() #2110415
 
@@ -95,7 +95,7 @@ ckd_ids <- ckd_ids %>%
   anti_join(gender_exclusion_ids, by="patid") %>%
   analysis$cached("ckd_ids", unique_indexes="patid")
 
-ckd_ids %>% count() #2137263
+ckd_ids %>% count() #1452649
 
 
 ############################################################################################
@@ -114,7 +114,7 @@ dob <- cprd$tables$observation %>%
   analysis$cached("earliest_medcode", unique_indexes="patid")
 
 #### Check count
-dob %>% count() #2727999 - everyone in download
+dob %>% count() #44,960,468 - almost everyone in download
 
 #### No-one has missing dob or earliest_medcode so pmin (runs as 'LEAST' in MySQL) works
 dob <- dob %>%
@@ -149,6 +149,6 @@ ckd_cohort <- ckd_ids %>%
   analysis$cached("ckd_cohort", unique_indexes="patid", indexes=c("gender", "dob"))
                   
                   
-ckd_cohort %>% count() # 2081045
+ckd_cohort %>% count() # 1,452,649
 
 ############################################################################################
