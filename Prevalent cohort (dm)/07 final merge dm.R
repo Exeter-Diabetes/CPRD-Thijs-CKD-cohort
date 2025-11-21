@@ -281,3 +281,6 @@ for (d in date_strings) {
   rm(ckd_stages)
   rm(smoking)
 }
+
+setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
+save(counts, file=paste0(today, "_ckd_counts_dm.Rda"))

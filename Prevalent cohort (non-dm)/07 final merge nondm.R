@@ -273,3 +273,6 @@ for (d in date_strings) {
   save(list = df_name, file=paste0(d, "_prev_ckd_cohort_nondm.Rda"))
   
 }
+
+setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
+save(counts, file=paste0(today, "_ckd_counts_nondm.Rda"))
