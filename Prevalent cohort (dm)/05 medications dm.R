@@ -111,6 +111,8 @@ for (d in date_strings) {
       
       assign(index_date_merge_tablename, data)
       
+      rm(data)
+      
     } else {
     
     raw_tablename <- paste0("raw_", i, "_prodcodes")
@@ -129,6 +131,7 @@ for (d in date_strings) {
     
     assign(index_date_merge_tablename, data)
     
+    rm(data)
     }
   }
   

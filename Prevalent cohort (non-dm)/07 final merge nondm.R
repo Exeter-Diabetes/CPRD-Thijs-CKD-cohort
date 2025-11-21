@@ -71,8 +71,13 @@ for (d in date_strings) {
   total_count <- all_ids %>% 
     filter(regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     select(patid) %>%
-    count()
-  ckd_count <- cohort_ids %>% count()
+    count() %>% 
+    collect() %>% 
+    pull(n)
+  ckd_count <- cohort_ids %>% 
+    count() %>% 
+    collect() %>% 
+    pull(n)
   percentage <- round(ckd_count / total_count * 100, 1)
   count_at_date <- data.frame(ckd_count = ckd_count, total_count = total_count, percentage = percentage, date = d)
   counts <- rbind(counts, count_at_date)
@@ -272,6 +277,13 @@ for (d in date_strings) {
   setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
   save(list = df_name, file=paste0(d, "_prev_ckd_cohort_nondm.Rda"))
   
+  rm(medications)
+  rm(baseline_biomarkers)
+  rm(comorbidities)
+  rm(ckd_stages)
+  rm(smoking)
+  rm(cohort_ids)
+  rm(final_merge)
 }
 
 setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")

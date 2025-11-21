@@ -23,7 +23,7 @@ diabetes_cohort <- diabetes_cohort %>% analysis$cached("diabetes_cohort")
 ## Get index date
 
 # get dates at 6 month intervals
-dates <- seq(from = as.Date("2024-03-01"),
+dates <- seq(from = as.Date("2019-03-01"),
              to   = as.Date("2024-03-01"),
              by   = "6 months")
 
@@ -70,10 +70,15 @@ for (d in date_strings) {
   
   # get counts of all patients + patients with CKD at index date
   total_count <- diabetes_cohort %>% 
-    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     select(patid) %>%
-    count()
-  ckd_count <- cohort_ids %>% count()
+    count() %>% 
+    collect() %>% 
+    pull(n)
+  ckd_count <- cohort_ids %>% 
+    count() %>% 
+    collect() %>% 
+    pull(n)
   percentage <- round(ckd_count / total_count * 100, 1)
   count_at_date <- data.frame(ckd_count = ckd_count, total_count = total_count, percentage = percentage, date = d)
   counts <- rbind(counts, count_at_date)
@@ -92,7 +97,6 @@ for (d in date_strings) {
            index_date = index_date) %>%
     relocate(c(index_date_age, index_date_ckd_dur_all), .before=gender) %>%
     analysis$cached("final_merge", unique_indexes="patid")
-  
   
   # ############################################################################################
   # 
@@ -280,6 +284,8 @@ for (d in date_strings) {
   rm(comorbidities)
   rm(ckd_stages)
   rm(smoking)
+  rm(cohort_ids)
+  rm(final_merge)
 }
 
 setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
