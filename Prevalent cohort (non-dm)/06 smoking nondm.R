@@ -170,4 +170,12 @@ for (d in date_strings) {
                                                 qrisk2_smoking_cat==3 ~ "Moderate smoker",
                                                 qrisk2_smoking_cat==4 ~ "Heavy smoker")) %>%
     analysis$cached(paste0(d, "_smoking"), unique_indexes="patid")
+  
+  rm(pre_index_date_smoking_codes)
+  rm(smoker_ever)
+  rm(most_recent_code)
+  rm(next_most_recent_code)
+  rm(smoking_cat)
+  rm(qrisk2_smoking_cat)
+  rm(smoking)
 }

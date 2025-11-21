@@ -116,6 +116,7 @@ for (d in date_strings) {
       
       assign(index_date_merge_tablename, data)
       
+      rm(data)
     }
   
   
