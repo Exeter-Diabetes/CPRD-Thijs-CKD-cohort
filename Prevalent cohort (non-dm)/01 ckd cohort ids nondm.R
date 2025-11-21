@@ -131,6 +131,22 @@ dob <- dob %>% analysis$cached("dob", unique_indexes="patid")
 analysis = cprd$analysis("all_patid")
 ethnicity <- ethnicity %>% analysis$cached("ethnicity", unique_indexes="patid")
 
+# get list of all ids
+all_ids <- dob %>%
+  anti_join(practice_exclusion_ids, by="patid") %>% 
+  anti_join(gender_exclusion_ids, by="patid") %>%
+  left_join((cprd$tables$patient %>% select(patid, gender, regenddate, pracid)), by="patid") %>%
+  left_join((cprd$tables$practice %>% select(pracid, lcd, region)), by="pracid") %>%
+  left_join((cprd$tables$onsDeath %>% select(patid, reg_date_of_death)), by="patid") %>%
+  left_join((cprd$tables$patientImd %>% select(patid, imd_decile)), by="patid") %>%
+  left_join((cprd$tables$validDateLookup %>% select(patid, gp_end_date)), by="patid") %>%
+  left_join((cprd$tables$patidsWithLinkage %>% mutate(with_hes=1L) %>% select(patid, with_hes, hes_end_date)), by="patid") %>%
+  mutate(with_hes=ifelse(is.na(with_hes), 0L, 1L)) %>%
+  left_join(ethnicity, by="patid") %>%
+  select(patid, gender, dob, pracid, prac_region=region, ethnicity_5cat, ethnicity_16cat, ethnicity_qrisk2, imd_decile, regstartdate, gp_end_date, death_date=reg_date_of_death, with_hes, hes_end_date) %>%
+  analysis$cached("all_ids", unique_indexes="patid", indexes=c("gender", "dob"))
+
+all_ids %>% count() 
 
 # join ids with dob and other data
 analysis = cprd$analysis(analysis_prefix)

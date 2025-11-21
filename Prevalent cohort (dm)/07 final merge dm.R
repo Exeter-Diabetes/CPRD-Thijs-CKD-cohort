@@ -18,7 +18,7 @@ analysis_prefix = "ckd"
 ## Cohort and patient characteristics
 analysis = cprd$analysis("all")
 ckd_cohort <- ckd_cohort %>% analysis$cached("diabetes_ckd_cohort")
-
+diabetes_cohort <- diabetes_cohort %>% analysis$cached("diabetes_cohort")
 
 ## Get index date
 
@@ -29,6 +29,8 @@ dates <- seq(from = as.Date("2024-03-01"),
 
 date_strings <- format(dates, "%Y-%m-%d")
 
+# create empty dataframe for counts of total population / subset with CKD
+counts <- data.frame()
 
 for (d in date_strings) {
   
@@ -66,7 +68,17 @@ for (d in date_strings) {
     select(patid) %>%
     analysis$cached("cohort_ids", unique_indexes="patid")
   
-  cohort_ids %>% count()
+  # get counts of all patients + patients with CKD at index date
+  total_count <- diabetes_cohort %>% 
+    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    select(patid) %>%
+    count()
+  ckd_count <- cohort_ids %>% count()
+  percentage <- round(ckd_count / total_count * 100, 1)
+  count_at_date <- data.frame(ckd_count = ckd_count, total_count = total_count, percentage = percentage, date = d)
+  counts <- rbind(counts, count_at_date)
+  rm(count_at_date)
+  print(paste0("CKD prevalence: ", percentage, "% (", ckd_count, " out of ", total_count, " at ", d, ")"))
   
   final_merge <- cohort_ids %>%
     left_join(ckd_cohort, by="patid") %>%
