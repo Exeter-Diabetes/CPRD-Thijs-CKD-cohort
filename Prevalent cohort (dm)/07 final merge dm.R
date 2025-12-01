@@ -75,12 +75,33 @@ for (d in date_strings) {
     count() %>% 
     collect() %>% 
     pull(n)
+  total_valid_egfr_count <- diabetes_cohort %>% 
+    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    left_join(baseline_biomarkers, by = "patid") %>%
+    filter(!is.na(preegfr)) %>%
+    select(patid) %>%
+    count() %>% 
+    collect() %>% 
+    pull(n)
+  total_valid_egfr_uacr_count <- diabetes_cohort %>% 
+    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    left_join(baseline_biomarkers, by = "patid") %>%
+    filter(!is.na(preegfr) & (!is.na(preacr) | !is.na(preacr_from_separate))) %>%
+    select(patid) %>%
+    count() %>% 
+    collect() %>% 
+    pull(n)
   ckd_count <- cohort_ids %>% 
     count() %>% 
     collect() %>% 
     pull(n)
   percentage <- round(ckd_count / total_count * 100, 1)
-  count_at_date <- data.frame(ckd_count = ckd_count, total_count = total_count, percentage = percentage, date = d)
+  count_at_date <- data.frame(ckd_count = ckd_count, 
+                              total_count = total_count, 
+                              total_valid_egfr_count = total_valid_egfr_count, 
+                              total_valid_egfr_uacr_count = total_valid_egfr_uacr_count, 
+                              percentage = percentage, 
+                              date = d)
   counts <- rbind(counts, count_at_date)
   rm(count_at_date)
   print(paste0("CKD prevalence: ", percentage, "% (", ckd_count, " out of ", total_count, " at ", d, ")"))

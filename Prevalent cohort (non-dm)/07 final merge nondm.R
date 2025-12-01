@@ -18,9 +18,9 @@ analysis_prefix <- "ckd"
 ############################################################################################
 
 ## Cohort and patient characteristics
-analysis = cprd$analysis("all_patid")
+analysis = cprd$analysis(analysis_prefix)
 ckd_cohort <- ckd_cohort %>% analysis$cached("ckd_cohort")
-
+analysis = cprd$analysis("all_patid")
 all_ids <- all_ids %>% analysis$cached("all_ids")
 
 ## Get index date
@@ -63,13 +63,29 @@ for (d in date_strings) {
   ## Prevalent cohort: registered on 01/02/2020 and with diagnosis at/before then and with linked HES records (and n_patid_hes<=20).
   
   cohort_ids <- ckd_cohort %>%
-    filter(first_ckd_date<=index_date & regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(first_ckd_date<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     select(patid) %>%
     analysis$cached("cohort_ids", unique_indexes="patid")
   
   # get counts of all patients + patients with CKD at index date
   total_count <- all_ids %>% 
-    filter(regstartdate<=index_date & gp_record_end>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    select(patid) %>%
+    count() %>% 
+    collect() %>% 
+    pull(n)
+  total_valid_egfr_count <- all_ids %>% 
+    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    left_join(baseline_biomarkers, by = "patid") %>%
+    filter(!is.na(preegfr)) %>%
+    select(patid) %>%
+    count() %>% 
+    collect() %>% 
+    pull(n)
+  total_valid_egfr_uacr_count <- all_ids %>% 
+    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    left_join(baseline_biomarkers, by = "patid") %>%
+    filter(!is.na(preegfr) & (!is.na(preacr) | !is.na(preacr_from_separate))) %>%
     select(patid) %>%
     count() %>% 
     collect() %>% 
@@ -79,7 +95,13 @@ for (d in date_strings) {
     collect() %>% 
     pull(n)
   percentage <- round(ckd_count / total_count * 100, 1)
-  count_at_date <- data.frame(ckd_count = ckd_count, total_count = total_count, percentage = percentage, date = d)
+  count_at_date <- data.frame(ckd_count = ckd_count, 
+                              total_count = total_count, 
+                              total_valid_egfr_count = total_valid_egfr_count, 
+                              total_valid_egfr_uacr_count = total_valid_egfr_uacr_count, 
+                              percentage = percentage, 
+                              date = d)
+  
   counts <- rbind(counts, count_at_date)
   rm(count_at_date)
   print(paste0("CKD prevalence: ", percentage, "% (", ckd_count, " out of ", total_count, " at ", d, ")"))
@@ -283,6 +305,8 @@ for (d in date_strings) {
   rm(ckd_stages)
   rm(smoking)
   rm(cohort_ids)
+  rm(all_ids)
+  rm(ckd_cohort)
   rm(final_merge)
 }
 
