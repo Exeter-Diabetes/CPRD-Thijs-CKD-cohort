@@ -43,13 +43,14 @@ comorbids <- c("acutepancreatitis",
                "lowerlimbfracture",
                "micturition_control",
                "myocardialinfarction",
-               "neuropathy",
+               #"neuropathy",
                "osteoporosis",
                "otherneuroconditions",
                "pad", #peripheral arterial disease
                "pulmonaryfibrosis",
                "pulmonaryhypertension",
-               "retinopathy",
+               "severe_retinopathy",
+               "non_severe_retinopathy",
                "revasc", #revascularisation procedure
                "rheumatoidarthritis",
                "solid_cancer",
@@ -59,7 +60,7 @@ comorbids <- c("acutepancreatitis",
                "ukpds_photocoagulation",
                "unstableangina",
                "urinary_frequency",
-               "vitreoushemorrhage",
+               #"vitreoushemorrhage",
                "volume_depletion",
                "genital_infection",
                "genital_infection_nonspec"
@@ -296,3 +297,4 @@ for (d in date_strings) {
   comorbidities <- comorbidities %>% analysis$cached(paste0(d, "_comorbidities"), unique_indexes="patid")
   
 }
+

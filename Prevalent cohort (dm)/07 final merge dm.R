@@ -70,13 +70,13 @@ for (d in date_strings) {
   
   # get counts of all patients + patients with CKD at index date
   total_count <- diabetes_cohort %>% 
-    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(diabetes_type == "type 2" & dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     select(patid) %>%
     count() %>% 
     collect() %>% 
     pull(n)
   total_valid_egfr_count <- diabetes_cohort %>% 
-    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(diabetes_type == "type 2" & dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     left_join(baseline_biomarkers, by = "patid") %>%
     filter(!is.na(preegfr)) %>%
     select(patid) %>%
@@ -84,7 +84,7 @@ for (d in date_strings) {
     collect() %>% 
     pull(n)
   total_valid_egfr_uacr_count <- diabetes_cohort %>% 
-    filter(dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+    filter(diabetes_type == "type 2" & dm_diag_date_all<=index_date & regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
     left_join(baseline_biomarkers, by = "patid") %>%
     filter(!is.na(preegfr) & (!is.na(preacr) | !is.na(preacr_from_separate))) %>%
     select(patid) %>%

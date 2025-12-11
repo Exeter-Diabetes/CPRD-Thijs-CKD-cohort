@@ -297,7 +297,7 @@ for (d in date_strings) {
   assign(df_name, prev_cohort, envir = .GlobalEnv)
   
   setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
-  save(list = df_name, file=paste0(d, "_prev_ckd_cohort_nondm.Rda"))
+  save(list = df_name, file=paste0(today, "_prev_ckd_cohort_nondm_", d, ".Rda"))
   
   rm(medications)
   rm(baseline_biomarkers)

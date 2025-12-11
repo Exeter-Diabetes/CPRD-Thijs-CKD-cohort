@@ -25,7 +25,7 @@ clean_egfr_medcodes <- clean_egfr_medcodes %>%
    analysis$cached("clean_egfr_medcodes", indexes=c("patid", "date", "testvalue"))
 
 clean_egfr_medcodes %>% count()
-#109,785,372 - lose readings of people with sex == NA or with missing creatinine
+#112,440,442 - lose readings of people with sex == NA or with missing creatinine
 
 
 ################################################################################################################################
@@ -95,10 +95,10 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
   analysis$cached("ckd_stages_from_algorithm_interim_1",indexes=c("patid", "ckd_stage", "test_count", "first_test_date", "last_test_date"))
 
 ckd_stages_from_algorithm %>% count()
-#39,323,495
+#40,051,589
 
 ckd_stages_from_algorithm %>% summarise(total=sum(test_count, na.rm=TRUE))
-#total number of tests: 109,785,372 as above
+#total number of tests: 112,440,442 as above
 
 
 ### C) Remove periods with 1 reading, or with multiple readings but <90 days between first and last test, and cache
