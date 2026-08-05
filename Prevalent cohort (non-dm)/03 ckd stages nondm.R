@@ -249,10 +249,12 @@ ckd_stages_from_algorithm <- ckd_stages_from_algorithm %>%
 ######################################################################################
 analysis = cprd$analysis(analysis_prefix)
 
-# get dates at 6 month intervals
-dates <- seq(from = as.Date("2019-03-01"),
-             to   = as.Date("2024-03-01"),
-             by   = "6 months")
+# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
+# (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
+dates <- unique(c(
+  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
+  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+))
 
 date_strings <- format(dates, "%Y-%m-%d")
 

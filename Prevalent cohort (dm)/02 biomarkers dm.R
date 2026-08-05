@@ -16,7 +16,7 @@ analysis_prefix = "ckd"
 
 biomarkers <- c("egfr", "acr", "pcr", "acr_from_separate",
                 "albumin_blood", "haemoglobin", 
-                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl")
+                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl", "potassium")
 
 
 

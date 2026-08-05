@@ -11,7 +11,7 @@ cprd = CPRDData$new(cprdEnv = "nondiabetes-jun2024",cprdConf = "C:/Users/tj358/O
 
 
 codesets = cprd$codesets()
-codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
+codes1 = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 analysis_prefix <- "ckd"
 
@@ -66,6 +66,11 @@ comorbids <- c("acutepancreatitis",
                "genital_infection_nonspec"
 )
 
+# pull in codelists for ckd causes from local drive
+
+codes2 <- list()
+
+
 
 ############################################################################################
 
@@ -79,13 +84,20 @@ analysis = cprd$analysis("all_patid")
 
 for (i in comorbids) {
   
+  # if comorbidity in ckd_causes, pull codelists from list in local memory
+  if (i %in% ckd_causes) {
+    codes <- codes2
+  } else (
+    codes <- codes1
+  )
+  
   if (length(codes[[i]]) > 0) {
     print(paste("making", i, "medcode table"))
     
     raw_tablename <- paste0("raw_", i, "_medcodes")
     
     data <- cprd$tables$observation %>%
-      inner_join(codes[[i]], by="medcodeid") %>%
+      inner_join(codes[[i]], by="medcodeid", copy = T) %>% # include copy = T so that local data gets copied into mysql table
       analysis$cached(raw_tablename, indexes=c("patid", "obsdate"))
     
     assign(raw_tablename, data)
@@ -98,7 +110,7 @@ for (i in comorbids) {
     raw_tablename <- paste0("raw_", i, "_icd10")
     
     data <- cprd$tables$hesDiagnosisEpi %>%
-      inner_join(codes[[paste0("icd10_",i)]], sql_on="LHS.ICD LIKE CONCAT(icd10,'%')") %>%
+      inner_join(codes[[paste0("icd10_",i)]], sql_on="LHS.ICD LIKE CONCAT(icd10,'%')", copy = T) %>% # include copy = T so that local data gets copied into mysql table
       analysis$cached(raw_tablename, indexes=c("patid", "epistart"))
     
     assign(raw_tablename, data)
@@ -162,10 +174,12 @@ comorbids <- c("fh_diabetes_positive", "fh_diabetes_negative", comorbids)
 
 analysis = cprd$analysis(analysis_prefix)
 
-# get dates at 6 month intervals
-dates <- seq(from = as.Date("2019-03-01"),
-             to   = as.Date("2024-03-01"),
-             by   = "6 months")
+# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
+# (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
+dates <- unique(c(
+  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
+  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+))
 
 date_strings <- format(dates, "%Y-%m-%d")
 

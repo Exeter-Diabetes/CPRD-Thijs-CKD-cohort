@@ -19,7 +19,7 @@ analysis_prefix <- "ckd"
 
 biomarkers <- c("creatinine_blood", "acr", "pcr", "albumin_urine", "creatinine_urine",
                 "albumin_blood", "haemoglobin", 
-                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl")
+                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl", "potassium")
                 
 
 
@@ -138,8 +138,8 @@ clean_acr_from_separate_medcodes <- clean_albumin_urine_medcodes %>%
   filter(date==creat_date) %>%
   mutate(new_testvalue=testvalue/creat_value) %>%
   select(patid, date, testvalue=new_testvalue) %>%
-  clean_biomarker_units_acr(testvalue, i) %>%
-  #  clean_biomarker_values(testvalue, "acr") %>%
+ #  clean_biomarker_units_acr(testvalue, i) %>%
+  clean_biomarker_values(testvalue, "acr") %>%
   analysis$cached("clean_acr_from_separate_medcodes", indexes=c("patid", "date", "testvalue"))
 
 biomarkers <- setdiff(biomarkers, c("albumin_urine", "creatinine_urine"))
@@ -148,10 +148,12 @@ biomarkers <- c("acr_from_separate", biomarkers)
 ######################################################################################
 analysis = cprd$analysis(analysis_prefix)
 
-# get dates at 6 month intervals
-dates <- seq(from = as.Date("2019-03-01"),
-             to   = as.Date("2024-03-01"),
-             by   = "6 months")
+# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
+# (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
+dates <- unique(c(
+  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
+  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+))
 
 date_strings <- format(dates, "%Y-%m-%d")
 
