@@ -15,7 +15,7 @@ codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 analysis_prefix <- "ckd"
-start_date = "2019-03-01"
+start_date = "2022-03-01"
 end_date = "2024-03-01"
 
 ############################################################################################
@@ -33,10 +33,10 @@ ckd_causes <- ckd_causes %>% analysis$cached("ckd_causes")
 
 ## Get index date
 
-# get dates at 6 month intervals
-dates <- seq(from = as.Date(start_date),
-             to   = as.Date(end_date),
-             by   = "6 months")
+# (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
+dates <- unique(c(
+  seq(from = as.Date("2022-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+))
 
 date_strings <- format(dates, "%Y-%m-%d")
 
@@ -63,6 +63,9 @@ for (d in date_strings) {
   
   ## Medications
   medications <- medications %>% analysis$cached("medications")
+
+  ## electronic frailty index (EFI)
+  efi <- efi %>% analysis$cached("efi")
   
   
   ############################################################################################
@@ -124,6 +127,7 @@ for (d in date_strings) {
     left_join(smoking, by="patid") %>%
     left_join(medications, by="patid") %>%
     left_join(townsend_score %>% select(patid, tds_2011), by = "patid") %>% 
+    left_join(efi, by = "patid") %>%
     left_join(death_causes, by = "patid") %>%
     mutate(index_date_age=datediff(index_date, dob)/365.25,
            index_date_ckd_dur_all=datediff(index_date, first_ckd_date)/365.25,
@@ -170,7 +174,7 @@ for (d in date_strings) {
     
     select(patid, sex, index_date_age, ethnicity_qrisk2, qrisk2_smoking_cat, dm_duration_cat, bp_meds, type1, type2, cvd, ckd45, pre_index_date_fh_premature_cvd, pre_index_date_af, pre_index_date_rheumatoidarthritis, prehba1c, precholhdl, presbp, prebmi, tds_2011, surv_5yr, surv_10yr) %>%
     
-    analysis$cached( "qrisk_vars", indexes=c("patid"))
+    analysis$cached("qrisk_vars", indexes=c("patid"))
   
   
   
@@ -239,6 +243,7 @@ for (d in date_strings) {
   rm(smoking)
   rm(cohort_ids)
   rm(final_merge)
+  rm(efi)
 }
 
 setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")

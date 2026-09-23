@@ -83,10 +83,10 @@ for (i in meds) {
 
 analysis = cprd$analysis(analysis_prefix)
 
-# get dates at 6 month intervals
-dates <- seq(from = as.Date("2019-03-01"),
-             to   = as.Date("2024-03-01"),
-             by   = "6 months")
+# (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
+dates <- unique(c(
+  seq(from = as.Date("2022-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+))
 
 date_strings <- format(dates, "%Y-%m-%d")
 

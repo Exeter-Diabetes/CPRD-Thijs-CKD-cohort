@@ -72,11 +72,9 @@ for (deficit in efi_deficits) {
 # Clean medcodes then merge with index dates
 # Remove medcodes before DOB or after lcd/deregistration
 
-# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
 # (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
 dates <- unique(c(
-  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
-  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+  seq(from = as.Date("2022-03-01"), to = as.Date("2024-03-01"), by = "3 months")
 ))
 
 date_strings <- format(dates, "%Y-%m-%d")
@@ -141,7 +139,7 @@ for (d in date_strings) {
     deficit_short <- get_short_deficit(deficit)
 
     index_date_m_tablename              <- paste0("full_", deficit_short, "_m")
-    interim_efi_table                   <- paste0("efi_im_", deficit_short)
+    interim_efi_table                   <- paste0(d, "_efi_im_", deficit_short)
     pre_index_date_indicator            <- paste0("pre_index_date_", deficit_short)
     pre_index_date_earliest_date_variable <- paste0("pre_index_date_earliest_", deficit_short)
 
@@ -180,8 +178,8 @@ for (d in date_strings) {
   #     actual codes above, and should be ~0 for all patients in this non-DM cohort
   efi <- efi %>%
     mutate(pre_index_date_efi_polypharmacy = 1L) %>%
-    analysis$cached(
-      "efi_deficits",
+    analysis$cached(paste0(d,
+      "efi_deficits"),
       indexes = c("patid")
     )
 
@@ -206,8 +204,7 @@ for (d in date_strings) {
         pre_index_date_efi_score >= 0.36                                    ~ "severe"
       )
     ) %>%
-    analysis$cached(
-      "efi",
+    analysis$cached(paste0(d, "_efi"),
       indexes = c("patid")
     )
 }

@@ -11,7 +11,7 @@ cprd = CPRDData$new(cprdEnv = "nondiabetes-jun2024",cprdConf = "C:/Users/tj358/O
 
 
 codesets = cprd$codesets()
-codes1 = codesets$getAllCodeSetVersion(v = "01/06/2024")
+codes = codesets$getAllCodeSetVersion(v = "01/06/2024")
 
 analysis_prefix <- "ckd"
 
@@ -63,13 +63,15 @@ comorbids <- c("acutepancreatitis",
                "urinary_frequency",
                "volume_depletion",
                "genital_infection",
-               "genital_infection_nonspec"
+               "genital_infection_nonspec",
+               "wristfracture",
+               "vertfracture",
+               "hipfracture",
+               "humerusfracture",
+               "cerumen",
+               "nmsc"
+               
 )
-
-# pull in codelists for ckd causes from local drive
-
-codes2 <- list()
-
 
 
 ############################################################################################
@@ -84,52 +86,98 @@ analysis = cprd$analysis("all_patid")
 
 for (i in comorbids) {
   
-  # if comorbidity in ckd_causes, pull codelists from list in local memory
-  if (i %in% ckd_causes) {
-    codes <- codes2
-  } else (
-    codes <- codes1
-  )
-  
-  if (length(codes[[i]]) > 0) {
+  if (!i %in% c("wristfracture",
+               "vertfracture",
+               "hipfracture",
+               "humerusfracture",
+               "cerumen",
+               "nmsc")) {
+    
+    if (length(codes[[i]]) > 0) {
+      print(paste("making", i, "medcode table"))
+      
+      raw_tablename <- paste0("raw_", i, "_medcodes")
+      
+      data <- cprd$tables$observation %>%
+        inner_join(codes[[i]], by="medcodeid") %>%
+        analysis$cached(raw_tablename, indexes=c("patid", "obsdate"))
+      
+      assign(raw_tablename, data)
+      
+    }
+    
+    if (i!="hypertension" && length(codes[[paste0("icd10_", i)]]) > 0) {
+      print(paste("making", i, "ICD10 code table"))
+      
+      raw_tablename <- paste0("raw_", i, "_icd10")
+      
+      data <- cprd$tables$hesDiagnosisEpi %>%
+        inner_join(codes[[paste0("icd10_",i)]], sql_on="LHS.ICD LIKE CONCAT(icd10,'%')") %>%
+        analysis$cached(raw_tablename, indexes=c("patid", "epistart"))
+      
+      assign(raw_tablename, data)
+      
+    }
+    
+    if (length(codes[[paste0("opcs4_", i)]]) > 0) {
+      print(paste("making", i, "OPCS4 code table"))
+      
+      raw_tablename <- paste0("raw_", i, "_opcs4")
+      
+      data <- cprd$tables$hesProceduresEpi %>%
+        inner_join(codes[[paste0("opcs4_",i)]], sql_on="LHS.OPCS LIKE CONCAT(opcs4,'%')") %>%
+        analysis$cached(raw_tablename, indexes=c("patid", "evdate"))
+      
+      assign(raw_tablename, data)
+      
+    }
+    
+  } else {
+    
+     if (i != "aki") {
     print(paste("making", i, "medcode table"))
     
     raw_tablename <- paste0("raw_", i, "_medcodes")
     
+    #placeholder variable that all other codelists have on server
+    empty_variable = paste0(i, "_cat")
+    
     data <- cprd$tables$observation %>%
-      inner_join(codes[[i]], by="medcodeid", copy = T) %>% # include copy = T so that local data gets copied into mysql table
+      inner_join( readr::read_tsv(
+        here::here(paste0("C:/Users/tj358/OneDrive - University of Exeter/CPRD/Aurum codelists/medcodes/exeter_medcodelist_", i, ".tsv")),
+        col_types = cols(.default=col_character())) %>%
+          rename(medcodeid=MedCodeId) %>%
+          select(medcodeid) %>%
+          mutate(!!sym(empty_variable) := NA), 
+        by="medcodeid", copy = T) %>%
       analysis$cached(raw_tablename, indexes=c("patid", "obsdate"))
     
     assign(raw_tablename, data)
-    
-  }
-  
-  if (length(codes[[paste0("icd10_", i)]]) > 0 & i!="hypertension") {
+     }
+
+    if (i != "cerumen") {
     print(paste("making", i, "ICD10 code table"))
-    
-    raw_tablename <- paste0("raw_", i, "_icd10")
-    
-    data <- cprd$tables$hesDiagnosisEpi %>%
-      inner_join(codes[[paste0("icd10_",i)]], sql_on="LHS.ICD LIKE CONCAT(icd10,'%')", copy = T) %>% # include copy = T so that local data gets copied into mysql table
-      analysis$cached(raw_tablename, indexes=c("patid", "epistart"))
-    
-    assign(raw_tablename, data)
-    
+
+
+          raw_tablename <- paste0("raw_", i, "_icd10")
+          empty_variable = paste0("icd10_", i, "_cat")
+
+      
+      data <- cprd$tables$hesDiagnosisEpi %>%
+        inner_join(
+          readr::read_tsv(
+        here::here(paste0("C:/Users/tj358/OneDrive - University of Exeter/CPRD/Aurum codelists/medcodes/exeter_icd10_", i, ".txt")),
+        col_types = cols(.default=col_character())) %>% 
+        rename(icd10 = ICD10) %>%
+        select(icd10) %>%
+        mutate(!!sym(empty_variable) := NA),
+          , sql_on="LHS.ICD LIKE CONCAT(icd10,'%')", copy = T) %>%
+        analysis$cached(raw_tablename, indexes=c("patid", "epistart"))
+      
+      assign(raw_tablename, data)
+
+    }
   }
-  
-  if (length(codes[[paste0("opcs4_", i)]]) > 0) {
-    print(paste("making", i, "OPCS4 code table"))
-    
-    raw_tablename <- paste0("raw_", i, "_opcs4")
-    
-    data <- cprd$tables$hesProceduresEpi %>%
-      inner_join(codes[[paste0("opcs4_",i)]], sql_on="LHS.OPCS LIKE CONCAT(opcs4,'%')") %>%
-      analysis$cached(raw_tablename, indexes=c("patid", "evdate"))
-    
-    assign(raw_tablename, data)
-    
-  }
-  
 }
 
 
@@ -174,11 +222,9 @@ comorbids <- c("fh_diabetes_positive", "fh_diabetes_negative", comorbids)
 
 analysis = cprd$analysis(analysis_prefix)
 
-# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
 # (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
 dates <- unique(c(
-  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
-  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+  seq(from = as.Date("2022-03-01"), to = as.Date("2024-03-01"), by = "3 months")
 ))
 
 date_strings <- format(dates, "%Y-%m-%d")

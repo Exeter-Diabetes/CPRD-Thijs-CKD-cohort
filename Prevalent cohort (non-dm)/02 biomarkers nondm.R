@@ -19,7 +19,7 @@ analysis_prefix <- "ckd"
 
 biomarkers <- c("creatinine_blood", "acr", "pcr", "albumin_urine", "creatinine_urine",
                 "albumin_blood", "haemoglobin", 
-                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl", "potassium")
+                "dbp", "sbp", "weight", "height", "bmi", "totalcholesterol", "hba1c", "hdl", "potassium", "vitd")
                 
 
 
@@ -35,9 +35,25 @@ for (i in biomarkers) {
   
   raw_tablename <- paste0("raw_", i, "_medcodes")
   
+  if (i %in% c("potassium", "vitd")) {
+
+      data <- cprd$tables$observation %>% inner_join(
+        readr::read_tsv(
+          here::here(paste0("C:/Users/tj358/OneDrive - University of Exeter/CPRD/Aurum codelists/medcodes/exeter_medcodelist_", i, ".tsv")),
+          col_types = cols(.default=col_character())) %>%
+          rename(medcodeid=MedCodeId) %>%
+          select(medcodeid) %>%
+          mutate("{i}_cat" := NA), 
+        by="medcodeid", copy = T) %>%
+        analysis$cached(raw_tablename, indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+      
+  } else {
+  
   data <- cprd$tables$observation %>%
     inner_join(codes[[i]], by="medcodeid") %>%
     analysis$cached(raw_tablename, indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+  
+  }
   
   assign(raw_tablename, data)
   
@@ -64,6 +80,8 @@ for (i in biomarkers) {
   }
   
   
+  # select valid numunitid
+  
   if (i=="albumin_urine") {
     data <- raw_data %>%
       filter(numunitid==183)
@@ -83,7 +101,52 @@ for (i in biomarkers) {
       clean_biomarker_values(testvalue, "hba1c") %>%
       clean_biomarker_units(numunitid, "hba1c") 
     
-  } else {
+  } else if (i == "potassium") {
+      # potassium limits and units are not defined in the EHRBiomarkr package - define manually
+      data <- get(raw_tablename) %>%
+        dplyr::filter(testvalue >= 2.5 & testvalue <= 6.5) %>%
+        dplyr::inner_join(
+          data.frame(numunitid = c(218, 425, NA)),
+          by = "numunitid",
+          na_matches = "na",
+          copy = TRUE
+        ) %>%      
+        group_by(patid,obsdate) %>%
+        summarise(testvalue=mean(testvalue, na.rm=TRUE)) %>%
+        ungroup() %>%
+        
+        inner_join(cprd$tables$validDateLookup, by="patid") %>%
+        # filter(obsdate>=min_dob & obsdate<=gp_ons_end_date) %>%
+        filter(obsdate>=min_dob & obsdate<=gp_end_date) %>%
+        
+        select(patid, date=obsdate, testvalue) %>%
+        
+        analysis$cached(clean_tablename, indexes=c("patid", "date", "testvalue"))
+      
+    } else if (i == "vitd") {
+      data <- get(raw_tablename) %>%
+        dplyr::inner_join(
+          data.frame(numunitid = c(235, 233, NA)), # 235: nmol/L, 233: ng/mL
+          by = "numunitid",
+          na_matches = "na",
+          copy = TRUE
+        ) %>%      
+        mutate(testvalue=ifelse(numunitid==233, testvalue*2.5, testvalue)) %>% # convert ng/mL to nmol/L
+        dplyr::filter(testvalue >= 5 & testvalue <= 250) %>%
+        group_by(patid,obsdate) %>%
+        summarise(testvalue=mean(testvalue, na.rm=TRUE)) %>%
+        ungroup() %>%
+        
+        inner_join(cprd$tables$validDateLookup, by="patid") %>%
+        # filter(obsdate>=min_dob & obsdate<=gp_ons_end_date) %>%
+        filter(obsdate>=min_dob & obsdate<=gp_end_date) %>%
+        
+        select(patid, date=obsdate, testvalue) %>%
+        
+        analysis$cached(clean_tablename, indexes=c("patid", "date", "testvalue"))
+      
+      
+    } else {
     data <- raw_data %>%
       clean_biomarker_units(testvalue, i) %>%
       #clean_biomarker_values(testvalue, i) %>%
@@ -148,11 +211,9 @@ biomarkers <- c("acr_from_separate", biomarkers)
 ######################################################################################
 analysis = cprd$analysis(analysis_prefix)
 
-# 6-monthly dates for 2019-2021 (prevalent cohort), then 3-monthly from 2021 onwards
 # (3-monthly required for sequential trial emulation of SGLT2i in non-DM CKD)
 dates <- unique(c(
-  seq(from = as.Date("2019-03-01"), to = as.Date("2020-09-01"), by = "6 months"),
-  seq(from = as.Date("2021-03-01"), to = as.Date("2024-03-01"), by = "3 months")
+  seq(from = as.Date("2022-03-01"), to = as.Date("2024-03-01"), by = "3 months")
 ))
 
 date_strings <- format(dates, "%Y-%m-%d")
