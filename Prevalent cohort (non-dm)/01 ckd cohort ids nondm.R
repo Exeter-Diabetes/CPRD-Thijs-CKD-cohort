@@ -107,7 +107,22 @@ biomarkers <- c("creatinine_blood", "acr", "albumin_urine", "creatinine_urine")
 
 for (i in biomarkers) {
   
-  print(i)
+  print(paste0("Making raw ", i, " biomarker table"))
+  
+  raw_tablename <- paste0("raw_", i, "_medcodes")
+  
+  data <- cprd$tables$observation %>%
+    inner_join(codes[[i]], by="medcodeid") %>%
+    analysis$cached(raw_tablename, indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+  
+  
+  assign(raw_tablename, data)
+  
+}
+
+for (i in biomarkers) {
+  
+  print(paste0("Cleaning ", i, " biomarker table"))
   
   raw_tablename <- paste0("raw_", i, "_medcodes")
   clean_tablename <- paste0("clean_", i, "_medcodes")
