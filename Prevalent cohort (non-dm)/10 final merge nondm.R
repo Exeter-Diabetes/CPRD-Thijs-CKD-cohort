@@ -54,6 +54,7 @@ for (d in date_strings) {
   ## Biomarkers plus CKD stage
   ckd_stages <- ckd_stages %>% analysis$cached("ckd_stages")
   baseline_biomarkers <- baseline_biomarkers %>% analysis$cached("baseline_biomarkers")
+  response_biomarkers <- response_biomarkers %>% analysis$cached("response_biomarkers")
   
   ## Comorbidities
   comorbidities <- comorbidities %>% analysis$cached("comorbidities")
@@ -79,49 +80,50 @@ for (d in date_strings) {
     analysis$cached("cohort_ids", unique_indexes="patid")
   
   # get counts of all patients + patients with CKD at index date
-  total_count <- all_ids %>% 
-    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
-    select(patid) %>%
-    count() %>% 
-    collect() %>% 
-    pull(n)
-  total_valid_egfr_count <- all_ids %>% 
-    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
-    left_join(baseline_biomarkers, by = "patid") %>%
-    filter(!is.na(preegfr)) %>%
-    select(patid) %>%
-    count() %>% 
-    collect() %>% 
-    pull(n)
-  total_valid_egfr_uacr_count <- all_ids %>% 
-    filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
-    left_join(baseline_biomarkers, by = "patid") %>%
-    filter(!is.na(preegfr) & (!is.na(preacr) | !is.na(preacr_from_separate))) %>%
-    select(patid) %>%
-    count() %>% 
-    collect() %>% 
-    pull(n)
-  ckd_count <- cohort_ids %>% 
-    count() %>% 
-    collect() %>% 
-    pull(n)
-  percentage <- round(ckd_count / total_count * 100, 1)
-  count_at_date <- data.frame(ckd_count = ckd_count, 
-                              total_count = total_count, 
-                              total_valid_egfr_count = total_valid_egfr_count, 
-                              total_valid_egfr_uacr_count = total_valid_egfr_uacr_count, 
-                              percentage = percentage, 
-                              date = d)
-  
-  counts <- rbind(counts, count_at_date)
-  rm(count_at_date)
-  print(paste0("CKD prevalence: ", percentage, "% (", ckd_count, " out of ", total_count, " at ", d, ")"))
+ # total_count <- all_ids %>% 
+ #   filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+ #   select(patid) %>%
+ #   count() %>% 
+ #   collect() %>% 
+ #   pull(n)
+ # total_valid_egfr_count <- all_ids %>% 
+ #   filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+ #   left_join(baseline_biomarkers, by = "patid") %>%
+ #   filter(!is.na(preegfr)) %>%
+ #   select(patid) %>%
+ #   count() %>% 
+ #   collect() %>% 
+ #   pull(n)
+ # total_valid_egfr_uacr_count <- all_ids %>% 
+ #   filter(regstartdate<=index_date & gp_end_date>=index_date & (is.na(death_date) | death_date>=index_date)) %>%
+ #   left_join(baseline_biomarkers, by = "patid") %>%
+ #   filter(!is.na(preegfr) & (!is.na(preacr) | !is.na(preacr_from_separate))) %>%
+ #   select(patid) %>%
+ #   count() %>% 
+ #   collect() %>% 
+ #   pull(n)
+ # ckd_count <- cohort_ids %>% 
+ #   count() %>% 
+ #   collect() %>% 
+ #   pull(n)
+ # percentage <- round(ckd_count / total_count * 100, 1)
+ # count_at_date <- data.frame(ckd_count = ckd_count, 
+ #                             total_count = total_count, 
+ #                             total_valid_egfr_count = total_valid_egfr_count, 
+ #                             total_valid_egfr_uacr_count = total_valid_egfr_uacr_count, 
+ #                             percentage = percentage, 
+ #                             date = d)
+ # 
+ # counts <- rbind(counts, count_at_date)
+ # rm(count_at_date)
+ # print(paste0("CKD prevalence: ", percentage, "% (", ckd_count, " out of ", total_count, " at ", d, ")"))
   
   
   final_merge <- cohort_ids %>%
     left_join(ckd_cohort, by="patid") %>%
     left_join(ckd_stages, by="patid") %>%
     left_join(baseline_biomarkers, by="patid") %>%
+    left_join(response_biomarkers, by="patid") %>%
     left_join(comorbidities, by="patid") %>%
     left_join(ckd_causes, by="patid") %>%
     left_join(smoking, by="patid") %>%
@@ -246,5 +248,5 @@ for (d in date_strings) {
   rm(efi)
 }
 
-setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
-save(counts, file=paste0(today, "_ckd_counts_nondm.Rda"))
+# setwd("C:/Users/tj358/OneDrive - University of Exeter/CPRD/2024/Raw data/")
+# save(counts, file=paste0(today, "_ckd_counts_nondm.Rda"))

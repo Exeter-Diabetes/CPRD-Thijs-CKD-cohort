@@ -69,7 +69,8 @@ comorbids <- c("acutepancreatitis",
                "hipfracture",
                "humerusfracture",
                "cerumen",
-               "nmsc"
+               "nmsc",
+               "aki"
                
 )
 
@@ -91,7 +92,9 @@ for (i in comorbids) {
                "hipfracture",
                "humerusfracture",
                "cerumen",
-               "nmsc")) {
+               "nmsc",
+               "aki"
+               )) {
     
     if (length(codes[[i]]) > 0) {
       print(paste("making", i, "medcode table"))

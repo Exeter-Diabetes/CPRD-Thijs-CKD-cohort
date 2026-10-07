@@ -452,6 +452,8 @@ advanced_ckd_ids <- ckd_stages_from_algorithm %>%
     )
   ) %>%
   mutate(index_date = ifelse(index_date == as.Date("2050-01-01"), NA, index_date)) %>%
+  # keep those with an index date after 1 Jan 2008 (as CKD was added to QOF in 2006) before keeping only the earliest index date for each patient
+  filter(index_date > as.Date("2008-01-01")) %>%
   group_by(patid) %>%
   dbplyr::window_order(index_date) %>%
   distinct(patid, .keep_all = TRUE) %>%
